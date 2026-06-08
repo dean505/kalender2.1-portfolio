@@ -8,7 +8,7 @@ The project supports user registration/login, role-based access, appointment boo
 
 - Backend: Java 21, Spring Boot 3.5, Spring Security, JWT, Spring Data JPA
 - Database: MySQL
-- Frontend: React, React Router, React Big Calendar/date utilities
+- Frontend: React, React Router, date utilitie
 - Build tools: Maven Wrapper, npm
 
 ## Features
