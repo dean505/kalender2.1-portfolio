@@ -1,0 +1,7 @@
+.git
+.idea
+target
+my-app/node_modules
+my-app/build
+my-app/.env
+*.log

@@ -1,0 +1,56 @@
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: kalender-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: kalenderdb
+    ports:
+      - "3307:3306"
+    volumes:
+      - kalender_mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-proot"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: kalender-backend
+    restart: unless-stopped
+    depends_on:
+      mysql:
+        condition: service_healthy
+    environment:
+      DB_URL: jdbc:mysql://mysql:3306/kalenderdb
+      DB_USERNAME: root
+      DB_PASSWORD: root
+      JWT_SECRET: local-docker-demo-secret-change-me-32-bytes
+      MAIL_ENABLED: "false"
+      ADMIN_SEED_ENABLED: "true"
+      ADMIN_SEED_NAME: Admin
+      ADMIN_SEED_EMAIL: admin@local.test
+      ADMIN_SEED_PASSWORD: admin1234
+      ADMIN_SEED_PHONE: "0000000000"
+    ports:
+      - "8081:8080"
+
+  frontend:
+    build:
+      context: ./my-app
+      dockerfile: Dockerfile
+      args:
+        REACT_APP_API_BASE: http://localhost:8081
+    container_name: kalender-frontend
+    restart: unless-stopped
+    depends_on:
+      - backend
+    ports:
+      - "3000:80"
+
+volumes:
+  kalender_mysql_data:

@@ -54,6 +54,41 @@ REACT_APP_API_BASE=http://localhost:8080
 
 ## Local Development
 
+### Run Everything With Docker
+
+The easiest way to start the full application is Docker Compose:
+
+```bash
+docker compose up --build
+```
+
+Services:
+
+- Frontend: `http://localhost:3000`
+- Backend: `http://localhost:8081`
+- MySQL from host tools: `localhost:3307`
+
+Local demo admin:
+
+```text
+Email: admin@local.test
+Password: admin1234
+```
+
+Stop the stack:
+
+```bash
+docker compose down
+```
+
+Remove the local MySQL data volume and start with an empty database:
+
+```bash
+docker compose down -v
+```
+
+### Manual Development
+
 Backend:
 
 ```bash
