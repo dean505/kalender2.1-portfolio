@@ -4,5 +4,5 @@ import java.time.LocalDateTime;
 
 public record BookedSlotDTO(
         LocalDateTime appointmentTime,
-        Integer durationMinutes
+        long durationMinutes
 ) {}
