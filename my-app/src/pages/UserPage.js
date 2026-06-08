@@ -33,7 +33,7 @@ export default function UserPage() {
   const [selectedDate, setSelectedDate] = useState(""); // "YYYY-MM-DD"
   const [selectedTime, setSelectedTime] = useState(""); // "HH:mm"
 
-  // modal (Passwort Ã¤ndern)
+  // modal (Passwort ändern)
   const [pwdOpen, setPwdOpen] = useState(false);
 
   const appointmentISO = useMemo(
@@ -84,7 +84,7 @@ export default function UserPage() {
         setSlots([]);
         return;
       }
-      // 2) Ã–ffnungszeiten
+      // 2) Öffnungszeiten
       const oh = await fetchWithAuth(`/api/oeffnungszeiten/datum/${selectedDate}`).catch(() => null);
       const startUhrzeit = oh?.startUhrzeit;
       const endUhrzeit   = oh?.endUhrzeit;
@@ -125,7 +125,7 @@ export default function UserPage() {
       const available = possible.filter((hhmm) => {
         const start = moment(`${selectedDate}T${hhmm}`);
         const end   = start.clone().add(duration, "minute");
-        // konservative Intervall-Ãœberlappung (Busy als Block von "duration")
+        // konservative Intervall-Überlappung (Busy als Block von "duration")
         return !busyThisDay.some((bStart) => {
           const busyStart = moment(bStart);
           const busyEnd   = busyStart.clone().add(duration, "minute");
@@ -166,7 +166,7 @@ export default function UserPage() {
 
   async function createBooking() {
     if (!selectedCat || !appointmentISO) return;
-    const iso = appointmentISO.length === 16 ? `${appointmentISO}:00` : appointmentISO; // Sekunden anhÃ¤ngen
+    const iso = appointmentISO.length === 16 ? `${appointmentISO}:00` : appointmentISO; // Sekunden anhängen
     await fetchWithAuth("/api/bookings", "POST", {
       appointmentTime: iso,
       categoryId: selectedCat.id,
@@ -180,7 +180,7 @@ export default function UserPage() {
   }
 
   function isPastToday(dateISO, hhmm) {
-    // nur fÃ¼r "heute" prÃ¼fen
+    // nur für "heute" prüfen
     const today = moment().format("YYYY-MM-DD");
     if (dateISO !== today) return false;
     const slot = moment(`${dateISO}T${hhmm}`, "YYYY-MM-DDTHH:mm");
@@ -199,7 +199,7 @@ export default function UserPage() {
 
       {step === STEP.PICK_CATEGORY && (
         <section className="admin-card">
-          <h3>Leistungen wÃ¤hlen</h3>
+          <h3>Leistungen wählen</h3>
           <div className="pill-grid">
             {categories.map(c => (
               <button
@@ -214,11 +214,11 @@ export default function UserPage() {
                 <div className="pill__title">{c.name}</div>
                 {c.description && <div className="pill__meta">{c.description}</div>}
                 <div className="pill__meta">
-                  {(c.durationMinutes ?? 40)} Min{c.price ? ` Â· ${Number(c.price).toFixed(2)} â‚¬` : ""}
+                  {(c.durationMinutes ?? 40)} Min{c.price ? ` · ${Number(c.price).toFixed(2)} €` : ""}
                 </div>
               </button>
             ))}
-            {categories.length === 0 && <div className="muted">Keine Leistungen verfÃ¼gbar.</div>}
+            {categories.length === 0 && <div className="muted">Keine Leistungen verfügbar.</div>}
           </div>
         </section>
       )}
@@ -230,19 +230,19 @@ export default function UserPage() {
               className="btn btn--light"
               onClick={() => { setStep(STEP.PICK_CATEGORY); setSelectedCat(null); }}
             >
-              â† ZurÃ¼ck
+              ← Zurück
             </button>
             <strong>{selectedCat.name}</strong>
             <span className="muted">
               {(selectedCat.durationMinutes ?? 40)} Min
-              {selectedCat.price ? ` Â· ${Number(selectedCat.price).toFixed(2)} â‚¬` : ""}
+              {selectedCat.price ? ` · ${Number(selectedCat.price).toFixed(2)} €` : ""}
             </span>
           </div>
 
           {/* Zwei Spalten: links Kalender/Slots, rechts kompakte Zusammenfassung */}
           <div className="booking-layout">
             <div>
-              <label className="label">WÃ¤hlen Sie einen Tag und eine Uhrzeit</label>
+              <label className="label">Wählen Sie einen Tag und eine Uhrzeit</label>
               <WeekPicker
                 value={selectedDate || moment().format("YYYY-MM-DD")}
                 onChange={(d) => { setSelectedDate(d); setSelectedTime(""); }}
@@ -254,12 +254,12 @@ export default function UserPage() {
               {selectedDate && (
                 <div style={{ marginTop: 8, color: openInfo?.gesperrt ? "#b91c1c" : "#6b7280" }}>
                   {!openInfo
-                    ? "Lade Ã–ffnungszeitenâ€¦"
+                    ? "Lade Öffnungszeiten..."
                     : openInfo.gesperrt
-                      ? "An diesem Tag sind keine Buchungen mÃ¶glich (gesperrt)."
+                      ? "An diesem Tag sind keine Buchungen möglich (gesperrt)."
                       : openInfo.start && openInfo.end
-                        ? `GeÃ¶ffnet: ${openInfo.start} â€“ ${openInfo.end}`
-                        : "FÃ¼r diesen Tag sind keine Ã–ffnungszeiten hinterlegt."}
+                        ? `Geöffnet: ${openInfo.start} - ${openInfo.end}`
+                        : "Für diesen Tag sind keine Öffnungszeiten hinterlegt."}
                 </div>
               )}
 
@@ -295,12 +295,12 @@ export default function UserPage() {
                 <div className="side-card__row"><strong>Dauer:</strong> {selectedCat.durationMinutes} Min</div>
               )}
               {selectedCat.price != null && (
-                <div className="side-card__row"><strong>Gesamtbetrag:</strong> {Number(selectedCat.price).toFixed(2)} â‚¬</div>
+                <div className="side-card__row"><strong>Gesamtbetrag:</strong> {Number(selectedCat.price).toFixed(2)} €</div>
               )}
               <div className="side-card__row">
-                <strong>Datum:</strong> {selectedDate ? moment(selectedDate).format("DD.MM.YYYY") : "â€”"}
+                <strong>Datum:</strong> {selectedDate ? moment(selectedDate).format("DD.MM.YYYY") : "-"}
               </div>
-              <div className="side-card__row"><strong>Uhrzeit:</strong> {selectedTime || "â€”"}</div>
+              <div className="side-card__row"><strong>Uhrzeit:</strong> {selectedTime || "-"}</div>
               <button
                 className="btn btn--primary"
                 style={{ width: "100%", marginTop: 10 }}
@@ -321,15 +321,15 @@ export default function UserPage() {
             <li key={b.id} className="list-row">
               <div>
                 <strong>{moment(b.appointmentTime).format("DD.MM.YYYY HH:mm")}</strong>{" "}
-                â€“ {b.categoryName || (categories.find(c => c.id === b.categoryId)?.name || "Kategorie")}
+                - {b.categoryName || (categories.find(c => c.id === b.categoryId)?.name || "Kategorie")}
               </div>
             </li>
           ))}
-          {myBookings.length === 0 && <li>Keine zukÃ¼nftigen Buchungen.</li>}
+          {myBookings.length === 0 && <li>Keine zukünftigen Buchungen.</li>}
         </ul>
       </section>
 
-      {/* Passwort-Modal einhÃ¤ngen */}
+      {/* Passwort-Modal einhängen */}
       <ChangePasswordModal
         open={pwdOpen}
         onClose={() => setPwdOpen(false)}
@@ -339,7 +339,7 @@ export default function UserPage() {
       {/* gemeinsame Footer-Aktionen unten rechts */}
       <div className="footer-actions">
         <button className="btn btn--light" onClick={() => setPwdOpen(true)}>
-          Passwort Ã¤ndern
+          Passwort ändern
         </button>
         <button className="btn btn--danger" onClick={logout}>
           Logout
@@ -349,7 +349,7 @@ export default function UserPage() {
   );
 }
 
-/* â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ Sub-Komponente: Passwort Ã¤ndern â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+/* ----------------- Sub-Komponente: Passwort ändern ----------------- */
 function ChangePasswordModal({ open, onClose, onSaved }) {
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
@@ -368,7 +368,7 @@ function ChangePasswordModal({ open, onClose, onSaved }) {
       return;
     }
     if (newPassword !== newPassword2) {
-      setError("Die PasswÃ¶rter stimmen nicht Ã¼berein.");
+      setError("Die Passwörter stimmen nicht überein.");
       return;
     }
 
@@ -382,7 +382,7 @@ function ChangePasswordModal({ open, onClose, onSaved }) {
       setCurrentPassword(""); setNewPassword(""); setNewPassword2("");
       onSaved?.();
     } catch (err) {
-      setError(err?.message || "Ã„ndern fehlgeschlagen.");
+      setError(err?.message || "Ändern fehlgeschlagen.");
     } finally {
       setSaving(false);
     }
@@ -391,7 +391,7 @@ function ChangePasswordModal({ open, onClose, onSaved }) {
   return (
     <div className="modal-backdrop" onClick={onClose}>
       <div className="modal-panel" onClick={(e) => e.stopPropagation()}>
-        <h3>Passwort Ã¤ndern</h3>
+        <h3>Passwort ändern</h3>
         <form className="grid grid--1" onSubmit={submit}>
           <label>
             <span className="label">Aktuelles Passwort</span>
@@ -431,7 +431,7 @@ function ChangePasswordModal({ open, onClose, onSaved }) {
               Abbrechen
             </button>
             <button type="submit" className="btn btn--primary" disabled={saving}>
-              {saving ? "Speichernâ€¦" : "Speichern"}
+              {saving ? "Speichern..." : "Speichern"}
             </button>
           </div>
         </form>
