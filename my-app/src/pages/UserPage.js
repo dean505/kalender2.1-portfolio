@@ -5,7 +5,7 @@ import "moment/locale/de";
 import { useNavigate } from "react-router-dom";
 import { parseJwt } from "../utils/jwt";
 import { fetchWithAuth } from "../utils/api";
-import { getWeekDates } from "../utils/appointmentSlots";
+import { buildAvailableSlots, getWeekDates } from "../utils/appointmentSlots";
 import "../assets/style.css";
 import WeekPicker from "../components/WeekPicker";
 
@@ -95,45 +95,13 @@ export default function UserPage() {
         return;
       }
 
-      // 3) Slots erzeugen
-      const duration = selectedCat.durationMinutes ?? 40;
-      const stepMin  = 15;
-      const day      = moment(selectedDate, "YYYY-MM-DD");
-      const dayStart = day.clone().set({
-        hour: Number(startUhrzeit.split(":")[0]),
-        minute: Number(startUhrzeit.split(":")[1]),
-        second: 0, millisecond: 0,
-      });
-      const dayEnd = day.clone().set({
-        hour: Number(endUhrzeit.split(":")[0]),
-        minute: Number(endUhrzeit.split(":")[1]),
-        second: 0, millisecond: 0,
-      });
-
-      const possible = [];
-      for (let t = dayStart.clone(); ; t.add(stepMin, "minute")) {
-        const end = t.clone().add(duration, "minute");
-        if (end.isAfter(dayEnd) || t.isSameOrAfter(dayEnd)) break;
-        possible.push(t.format("HH:mm"));
-      }
-
-      // 4) belegte Zeiten dieses Tages rausfiltern
-      const busyThisDay = (busyTimes || [])
-        .filter(iso => iso.startsWith(selectedDate))
-        .map(iso => moment(iso));
-
-      const available = possible.filter((hhmm) => {
-        const start = moment(`${selectedDate}T${hhmm}`);
-        const end   = start.clone().add(duration, "minute");
-        // konservative Intervall-Überlappung (Busy als Block von "duration")
-        return !busyThisDay.some((bStart) => {
-          const busyStart = moment(bStart);
-          const busyEnd   = busyStart.clone().add(duration, "minute");
-          return start.isBefore(busyEnd) && end.isAfter(busyStart);
-        });
-      });
-
-      setSlots(available);
+      setSlots(buildAvailableSlots({
+        date: selectedDate,
+        openTime: startUhrzeit,
+        closeTime: endUhrzeit,
+        durationMinutes: selectedCat.durationMinutes ?? 40,
+        busyTimes,
+      }));
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedDate, selectedCat, busyTimes]);

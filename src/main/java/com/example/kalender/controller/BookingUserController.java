@@ -1,12 +1,12 @@
 package com.example.kalender.controller;
 
+import com.example.kalender.dto.BookedSlotDTO;
 import com.example.kalender.dto.BookingDTO;
 import com.example.kalender.service.BookingService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.time.LocalDateTime;
 import java.util.List;
 
 // Für alle Benutzer – Eigene Buchungen erstellen und abrufen
@@ -39,9 +39,8 @@ public class BookingUserController {
     }
 
     @GetMapping("/alle-zeiten")
-    public List<LocalDateTime> getAllAppointmentTimes() {
+    public List<BookedSlotDTO> getAllAppointmentTimes() {
         return bookingService.getAllAppointmentTimes();
     }
 }
-
 

@@ -1,6 +1,7 @@
 package com.example.kalender.service;
 
 import com.example.kalender.dto.BookingDTO;
+import com.example.kalender.dto.BookedSlotDTO;
 import com.example.kalender.entity.*;
 import com.example.kalender.repository.*;
 import org.springframework.security.core.Authentication;
@@ -165,13 +166,15 @@ public class BookingService {
         bookingRepository.deleteById(bookingId);
     }
 
-    public List<LocalDateTime> getAllAppointmentTimes() {
+    public List<BookedSlotDTO> getAllAppointmentTimes() {
         return bookingRepository.findAll()
                 .stream()
-                .map(booking -> booking.getAppointmentTime())
+                .map(booking -> new BookedSlotDTO(
+                        booking.getAppointmentTime(),
+                        booking.getCategory() != null ? booking.getCategory().getDurationMinutes() : 40
+                ))
                 .collect(Collectors.toList());
     }
 
 }
-
 
