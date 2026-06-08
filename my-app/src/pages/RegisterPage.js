@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { API_BASE } from "../utils/api";
 import "../assets/style.css";
 
 const RegisterPage = () => {
@@ -16,7 +17,7 @@ const RegisterPage = () => {
     const payload = { name, email, password, telefonnummer };
 
     try {
-      const response = await fetch("/auth/register", {
+      const response = await fetch(`${API_BASE}/auth/register`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
@@ -67,7 +68,6 @@ const RegisterPage = () => {
 };
 
 export default RegisterPage;
-
 
 
 

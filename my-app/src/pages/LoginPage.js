@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { parseJwt } from "../utils/jwt";
+import { API_BASE } from "../utils/api";
 import "../assets/style.css";
 
 const LoginPage = () => {
@@ -20,7 +21,7 @@ const LoginPage = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    const response = await fetch("/auth/login", {
+    const response = await fetch(`${API_BASE}/auth/login`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ email: email.trim(), password }),
@@ -82,7 +83,6 @@ const LoginPage = () => {
 };
 
 export default LoginPage;
-
 
 
 

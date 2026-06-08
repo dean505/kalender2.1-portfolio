@@ -1,5 +1,5 @@
 // src/utils/api.js
-const API_BASE = process.env.REACT_APP_API_BASE ?? "http://localhost:8080";
+export const API_BASE = process.env.REACT_APP_API_BASE ?? "http://localhost:8080";
 
 /**
  * Einheitlicher Fetch mit JWT und robuster Fehlerbehandlung.
@@ -41,4 +41,3 @@ export async function fetchWithAuth(path, method = "GET", body) {
   if (!text) return null;
   try { return JSON.parse(text); } catch { return null; }
 }
-
