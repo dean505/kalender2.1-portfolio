@@ -1,0 +1,447 @@
+/* ===========================
+   Root & Reset
+=========================== */
+:root{
+  --bg:#f4f6f9;
+  --text:#1f2937;
+  --muted:#6b7280;
+  --card:#ffffff;
+  --border:#e5e7eb;
+
+  --primary:#3b82f6;     /* Blau */
+  --primary-700:#2563eb;
+  --success:#22c55e;     /* Grün */
+  --success-700:#16a34a;
+  --danger:#ef4444;      /* Rot */
+  --danger-700:#dc2626;
+
+  --shadow:0 2px 8px rgba(0,0,0,.06);
+  --radius:12px;
+}
+
+*{ box-sizing:border-box; }
+html,body,#root{ height:100%; }
+body{
+  margin:0;
+  font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Cantarell,'Helvetica Neue',Arial,'Noto Sans',sans-serif;
+  background:var(--bg);
+  color:var(--text);
+  line-height:1.45;
+}
+
+/* ===========================
+   Layout Wrappers
+=========================== */
+.page-wrap{
+  max-width:1200px;
+  margin:0 auto;
+  padding:24px 16px 48px;
+}
+.page-header h2{ margin:0 0 12px; }
+
+/* ===========================
+   Cards / Sections
+=========================== */
+.admin-card{
+  background:var(--card);
+  border:1px solid var(--border);
+  border-radius:var(--radius);
+  box-shadow:var(--shadow);
+  padding:16px;
+  margin:16px 0;
+}
+.admin-card h3{ margin:0 0 12px; }
+
+/* Seitenkarte rechts/unter Termin anlegen */
+.side-card{
+  margin-top:16px;
+  padding:16px;
+  border:1px solid var(--border);
+  border-radius:var(--radius);
+  background:var(--card);
+  box-shadow:var(--shadow);
+  max-width:360px;
+}
+.side-card h4{ margin:0 0 12px; }
+.side-card__row{ margin:6px 0; }
+
+/* ===========================
+   Grid Utils
+=========================== */
+.grid{ display:grid; gap:12px; }
+.grid--2{ grid-template-columns:repeat(2, 1fr); }
+.grid--3{ grid-template-columns:repeat(3, 1fr); }
+.grid--4{ grid-template-columns:repeat(4, 1fr); }
+.grid--full{ grid-column:1 / -1; }
+.grid--align-end{ display:flex; align-items:flex-end; }
+
+@media (max-width: 960px){
+  .grid--3,.grid--4{ grid-template-columns:1fr; }
+  .side-card{ max-width:none; }
+}
+
+/* ===========================
+   Forms / Inputs / Labels
+=========================== */
+.label{
+  display:block;
+  font-size:.9rem;
+  color:var(--muted);
+  margin:2px 0 6px;
+}
+.input, select, textarea{
+  width:100%;
+  padding:10px 12px;
+  border:1px solid var(--border);
+  border-radius:10px;
+  background:#fff;
+  font-size:1rem;
+  outline:none;
+  transition:border-color .15s ease, box-shadow .15s ease;
+}
+.input:focus, select:focus, textarea:focus{
+  border-color:var(--primary);
+  box-shadow:0 0 0 3px rgba(59,130,246,.15);
+}
+
+form{
+  display:flex;
+  flex-direction:column;
+  gap:12px;
+}
+
+/* ===========================
+   Buttons
+=========================== */
+.btn{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  gap:8px;
+  padding:10px 14px;
+  font-weight:600;
+  font-size:.95rem;
+  border-radius:10px;
+  border:1px solid transparent;
+  cursor:pointer;
+  background:#e5e7eb;
+  color:#111827;
+  transition:filter .15s ease, transform .02s ease;
+}
+.btn:active{ transform:translateY(1px); }
+.btn:disabled{ opacity:.6; cursor:not-allowed; }
+
+.btn--primary{ background:var(--primary); color:#fff; }
+.btn--primary:hover{ filter:brightness(.95); }
+
+.btn--success{ background:var(--success); color:#fff; }
+.btn--success:hover{ filter:brightness(.95); }
+
+.btn--danger{ background:var(--danger); color:#fff; }
+.btn--danger:hover{ filter:brightness(.95); }
+
+.btn--light{
+  background:#ffffff;
+  color:#111827;
+  border-color:var(--border);
+}
+.btn--light:hover{ filter:brightness(.98); }
+
+/* alte .button-Kompatibilität */
+.button{ composes: btn btn--primary; }
+
+/* ===========================
+   Toolbar / Pager
+=========================== */
+.toolbar{
+  display:flex;
+  gap:12px;
+  align-items:center;
+  margin:8px 0 12px;
+  flex-wrap:wrap;
+}
+.pager{
+  display:flex;
+  gap:8px;
+  justify-content:flex-end;
+  margin-top:12px;
+}
+
+/* ===========================
+   Lists
+=========================== */
+.list{ list-style:none; margin:0; padding:0; }
+.list-row{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  padding:12px;
+  background:#fff;
+  border:1px solid var(--border);
+  border-radius:10px;
+  margin:8px 0;
+}
+.row-actions{ display:flex; gap:8px; }
+.muted{ color:var(--muted); }
+.badge{
+  display:inline-block;
+  padding:2px 8px;
+  font-size:.8rem;
+  background:#eef2ff;
+  color:#3730a3;
+  border-radius:999px;
+  border:1px solid #e0e7ff;
+}
+
+/* ===========================
+   Dropdown (User-Suche)
+=========================== */
+.dropdown{
+  margin-top:6px;
+  background:#fff;
+  border:1px solid var(--border);
+  border-radius:10px;
+  box-shadow:var(--shadow);
+  overflow:hidden;
+}
+.dropdown-item{
+  width:100%;
+  text-align:left;
+  background:#fff;
+  border:none;
+  padding:10px 12px;
+  cursor:pointer;
+}
+.dropdown-item:hover{ background:#f9fafb; }
+
+/* ===========================
+   Chip (gewählter Benutzer)
+=========================== */
+.chip{
+  display:inline-flex;
+  gap:8px;
+  align-items:center;
+  padding:6px 10px;
+  background:#f1f5f9;
+  border:1px solid var(--border);
+  border-radius:999px;
+}
+.chip__x{
+  background:transparent;
+  border:none;
+  font-size:16px;
+  cursor:pointer;
+  line-height:1;
+}
+
+/* ===========================
+   Pill-Karten (Kategorien)
+=========================== */
+.pill-grid{
+  display:grid;
+  grid-template-columns:repeat(auto-fill,minmax(220px,1fr));
+  gap:10px;
+}
+.pill{
+  display:flex;
+  flex-direction:column;
+  gap:6px;
+  padding:12px;
+  background:#fff;
+  border:1px solid var(--border);
+  border-radius:12px;
+  text-align:left;
+  cursor:pointer;
+  transition:border-color .15s ease, box-shadow .15s ease, background .15s ease;
+}
+.pill:hover{
+  border-color:var(--primary);
+  box-shadow:0 0 0 3px rgba(59,130,246,.1);
+}
+.pill--active{
+  border-color:var(--primary);
+  background:#eff6ff;
+}
+.pill__title{ font-weight:700; }
+.pill__meta{ color:var(--muted); font-size:.9rem; }
+
+/* ===========================
+   Slot-Buttons (Zeiten)
+=========================== */
+
+/* bereits vergangene Zeiten als deaktiviert anzeigen */
+.slot:disabled{
+  opacity:.35;
+  cursor:not-allowed;
+  background:#f3f4f6;
+  border-color:var(--border);
+  color: var(--muted);
+}
+
+.slot-grid{
+  display:flex;
+  flex-wrap:wrap;
+  gap:8px;
+}
+.slot{
+  min-width:84px;
+  padding:10px 8px;
+  background:#fff;
+  border:1px solid var(--border);
+  border-radius:10px;
+  cursor:pointer;
+}
+.slot:hover{ background:#f9fafb; }
+.slot--active{
+  border:2px solid var(--primary);
+  background:#dbeafe;
+}
+
+/* ===========================
+   WeekPicker (aus deinem Component)
+=========================== */
+.week-picker{ display:grid; gap:8px; margin:8px 0 12px; }
+.wp-header{ display:flex; align-items:center; justify-content:space-between; }
+.wp-month{ font-weight:700; }
+.wp-nav{
+  border:1px solid var(--border);
+  background:#fff;
+  border-radius:10px;
+  padding:6px 10px;
+  cursor:pointer;
+}
+.wp-row{ display:grid; grid-template-columns:repeat(7,1fr); gap:6px; }
+.wp-weekdays .wp-col{ text-align:center; color:var(--muted); font-size:12px; }
+.wp-day{
+  height:40px;
+  border-radius:10px;
+  border:1px solid var(--border);
+  background:#fff;
+  cursor:pointer;
+}
+.wp-day:hover{ background:#f3f4f6; }
+.wp-day.selected{ background:#1d4ed8; color:#fff; border-color:#1d4ed8; }
+.wp-day:disabled{ opacity:.35; cursor:not-allowed; }
+
+/* ===========================
+   Tables (falls genutzt)
+=========================== */
+table{
+  width:100%;
+  border-collapse:collapse;
+  margin:10px 0;
+  background:#fff;
+  border:1px solid var(--border);
+  border-radius:10px;
+  overflow:hidden;
+}
+th,td{
+  padding:12px;
+  border-bottom:1px solid var(--border);
+  text-align:left;
+}
+thead th{
+  background:#f8fafc;
+  color:#334155;
+}
+
+/* ===========================
+   Login / Register kompakt
+=========================== */
+.auth-card{
+  max-width:420px;
+  margin:40px auto;
+  padding:20px;
+  background:#fff;
+  border:1px solid var(--border);
+  border-radius:var(--radius);
+  box-shadow:var(--shadow);
+}
+.auth-card h2{ margin:0 0 12px; }
+.auth-actions{ display:flex; gap:8px; align-items:center; justify-content:space-between; }
+
+/* ===========================
+   Legacy (sanfte Defaults)
+=========================== */
+ul{ padding-left:0; }
+hr{ border:0; border-top:1px solid var(--border); margin:16px 0; }
+section{ margin-bottom:16px; }
+
+/* ===========================
+   Compatibility for rbc calendar (UserPage)
+=========================== */
+.rbc-calendar{
+  background:#fff;
+  border:1px solid var(--border);
+  border-radius:12px;
+  box-shadow:var(--shadow);
+  padding:8px;
+}
+.rbc-event{ border-radius:6px; }
+.rbc-time-slot:hover{ background:#f0f9ff; }
+
+/* ===========================
+   Helper colors for quick tags
+=========================== */
+.text-muted{ color:var(--muted); }
+.bg-soft{ background:#f9fafb; }
+
+.wp-day:disabled {
+  opacity: .35;
+  cursor: not-allowed;
+  background: #f3f4f6;
+  border-color: var(--border);
+}
+
+/* ─── Browser-like Tabs (größer) ─────────────────────────────── */
+.tabs--browser {
+  display: flex;
+  gap: 8px;
+  padding: 0 10px;
+  margin-bottom: -6px;
+  position: relative;
+  z-index: 2;
+}
+
+.tab {
+  appearance: none;
+  border: 1px solid var(--border, #e5e7eb);
+  border-bottom: none;
+  background: var(--surface, #f8fafc);
+  color: var(--text, #111827);
+  /* 👇 größer gemacht */
+  padding: 14px 20px;        /* vorher 10px 14px */
+  font-size: 16px;           /* vorher Standard (ca. 14px) */
+  font-weight: 600;
+  border-top-left-radius: 12px;   /* etwas mehr Rundung */
+  border-top-right-radius: 12px;
+  cursor: pointer;
+  line-height: 1.3;
+  transition: filter .15s ease, background .15s ease;
+}
+
+.tab:hover { filter: brightness(0.97); }
+
+.tab--active {
+  background: #fff;
+  color: var(--text, #111827);
+  box-shadow:
+    0 1px 0 #fff inset,
+    0 3px 8px rgba(0,0,0,0.06);
+  position: relative;
+  z-index: 3;
+}
+
+/* Karte andocken */
+.tabs--browser + .admin-card {
+  margin-top: 0;
+  border-top-left-radius: 0;
+}
+/* Footer-Buttons rechts mit kleinem Abstand */
+.footer-actions{
+  display:flex;
+  justify-content:flex-end; /* ► rechts ausrichten */
+  gap:8px;                  /* kleiner Abstand zwischen Buttons */
+  margin:12px 0 40px;       /* oben/unten etwas Luft */
+}
