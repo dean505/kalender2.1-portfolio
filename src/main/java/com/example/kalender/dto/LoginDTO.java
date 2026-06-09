@@ -1,9 +1,13 @@
 package com.example.kalender.dto;
 
-// DTO für Login-Daten (E-Mail und Passwort)
+import jakarta.validation.constraints.Email;
+import jakarta.validation.constraints.NotBlank;
+
 public record LoginDTO(
-        String email, // Die E-Mail-Adresse des Benutzers
-        String password // Das Passwort des Benutzers
+        @NotBlank(message = "E-Mail darf nicht leer sein")
+        @Email(message = "E-Mail muss gueltig sein")
+        String email,
+
+        @NotBlank(message = "Passwort darf nicht leer sein")
+        String password
 ) {}
-
-

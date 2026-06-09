@@ -7,11 +7,10 @@ import com.example.kalender.entity.AppUser;
 import com.example.kalender.repository.AppUserRepository;
 import com.example.kalender.config.JwtService;
 import com.example.kalender.service.AuthService;
+import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.AuthenticationManager;
-import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
-import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 // Öffentliche Authentifizierung (Login & Registrierung)
@@ -34,25 +33,19 @@ public class AuthController {
 
     // Führt den Login durch und gibt ein JWT-Token zurück
     @PostMapping("/login")
-    public ResponseEntity<?> login(@RequestBody LoginDTO dto) {
-        try {
-            authManager.authenticate(
-                    new UsernamePasswordAuthenticationToken(dto.email(), dto.password())
-            );
-            AppUser user = userRepository.findByEmailIgnoreCase(dto.email()).orElseThrow();
-            String token = jwtService.generateToken(user);
-            return ResponseEntity.ok(new TokenResponseDTO(token));
-        } catch (BadCredentialsException ex) {
-            return ResponseEntity.status(401).body("BAD_CREDENTIALS");
-        }
+    public ResponseEntity<?> login(@Valid @RequestBody LoginDTO dto) {
+        authManager.authenticate(
+                new UsernamePasswordAuthenticationToken(dto.email(), dto.password())
+        );
+        AppUser user = userRepository.findByEmailIgnoreCase(dto.email()).orElseThrow();
+        String token = jwtService.generateToken(user);
+        return ResponseEntity.ok(new TokenResponseDTO(token));
     }
 
     // Führt die Registrierung eines neuen Benutzers durch
     @PostMapping("/register")
-    public ResponseEntity<?> register(@RequestBody RegisterDTO request) {
+    public ResponseEntity<?> register(@Valid @RequestBody RegisterDTO request) {
         authService.register(request);
         return ResponseEntity.ok().build();
     }
 }
-
-

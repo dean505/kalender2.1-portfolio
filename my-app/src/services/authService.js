@@ -14,7 +14,7 @@ export async function login({ email, password }) {
   } catch {}
 
   if (!response.ok) {
-    throw new Error(`Login fehlgeschlagen (${response.status}). ${text || ""}`);
+    throw new Error(`Login fehlgeschlagen (${response.status}). ${readErrorMessage(text)}`);
   }
   if (!token) {
     throw new Error("Login fehlgeschlagen: Server hat kein Token geliefert.");
@@ -32,10 +32,27 @@ export async function registerUser(payload) {
 
   if (!response.ok) {
     const text = await response.text();
-    const error = new Error(text || `Fehler ${response.status}`);
+    const error = new Error(readErrorMessage(text) || `Fehler ${response.status}`);
     error.status = response.status;
     throw error;
   }
 
   return response;
+}
+
+function readErrorMessage(text) {
+  if (!text) return "";
+
+  try {
+    const payload = JSON.parse(text);
+    if (payload.fieldErrors) {
+      const fieldErrors = Object.entries(payload.fieldErrors)
+        .map(([field, message]) => `${field}: ${message}`)
+        .join(", ");
+      return fieldErrors || payload.message || text;
+    }
+    return payload.message || text;
+  } catch {
+    return text;
+  }
 }

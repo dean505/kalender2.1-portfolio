@@ -1,83 +1,76 @@
 package com.example.kalender.config;
 
+import io.jsonwebtoken.JwtException;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.security.core.userdetails.UserDetailsService;
+import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.web.authentication.WebAuthenticationDetailsSource;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
-import java.util.List;
-import java.util.stream.Collectors;
 
 @Component
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
-    private final JwtService jwtService;
+    private static final String BEARER_PREFIX = "Bearer ";
 
-    public JwtAuthenticationFilter(JwtService jwtService) {
+    private final JwtService jwtService;
+    private final UserDetailsService userDetailsService;
+
+    public JwtAuthenticationFilter(JwtService jwtService, UserDetailsService userDetailsService) {
         this.jwtService = jwtService;
+        this.userDetailsService = userDetailsService;
     }
 
-    // Überprüft das Authorization-Header und extrahiert das JWT-Token
     @Override
     protected void doFilterInternal(HttpServletRequest request,
                                     HttpServletResponse response,
                                     FilterChain filterChain)
             throws ServletException, IOException {
 
-        final String authHeader = request.getHeader("Authorization");
-
-        // Prüft, ob der Header null oder nicht im richtigen Format ist
-        if (authHeader == null || !authHeader.startsWith("Bearer ")) {
-            filterChain.doFilter(request, response); // Wenn nicht, Filterkette fortsetzen
+        String authHeader = request.getHeader("Authorization");
+        if (authHeader == null || !authHeader.startsWith(BEARER_PREFIX)) {
+            filterChain.doFilter(request, response);
             return;
         }
 
-        final String jwt = authHeader.substring(7); // Extrahiert das JWT-Token aus dem Header
-        final String username = jwtService.extractUsername(jwt); // Extrahiert den Benutzernamen aus dem Token
-
-        // Wenn der Benutzer existiert und noch nicht authentifiziert ist
-        if (username != null && SecurityContextHolder.getContext().getAuthentication() == null) {
-
-            // Extrahiert die Rollen des Benutzers
-            List<SimpleGrantedAuthority> authorities = extractAuthorities(jwt);
-
-            // Debug-Ausgabe
-            System.out.println("➡️ JWT Filter aktiv für: " + username);
-            System.out.println("Authorities: " + authorities);
-
-            // Setzt das Authentication-Token mit den extrahierten Rollen
-            UsernamePasswordAuthenticationToken authToken =
-                    new UsernamePasswordAuthenticationToken(username, null, authorities);
-
-            authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
-
-            // Speichert die Authentifizierung im SecurityContext
-            SecurityContextHolder.getContext().setAuthentication(authToken);
+        String jwt = authHeader.substring(BEARER_PREFIX.length());
+        try {
+            authenticateRequest(request, jwt);
+        } catch (JwtException | IllegalArgumentException | UsernameNotFoundException ex) {
+            SecurityContextHolder.clearContext();
+            response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Invalid or expired token");
+            return;
         }
 
-        filterChain.doFilter(request, response); // Filterkette fortsetzen
+        filterChain.doFilter(request, response);
     }
 
-    // Extrahiert die Rollen aus dem JWT
-    private List<SimpleGrantedAuthority> extractAuthorities(String jwt) {
-        try {
-            List<String> roles = jwtService.extractAuthorities(jwt); // Extrahiert Rollen aus dem Token
-            return roles.stream()
-                    .map(role -> new SimpleGrantedAuthority(role.startsWith("ROLE_") ? role : "ROLE_" + role)) // Fügt "ROLE_" hinzu, falls nicht vorhanden
-                    .collect(Collectors.toList());
-        } catch (Exception e) {
-            return List.of(); // Gibt eine leere Liste zurück, falls keine Rollen extrahiert werden können
+    private void authenticateRequest(HttpServletRequest request, String jwt) {
+        if (SecurityContextHolder.getContext().getAuthentication() != null) {
+            return;
         }
+
+        String username = jwtService.extractUsername(jwt);
+        UserDetails userDetails = userDetailsService.loadUserByUsername(username);
+        if (!jwtService.isTokenValid(jwt, userDetails)) {
+            throw new JwtException("Invalid JWT");
+        }
+
+        UsernamePasswordAuthenticationToken authToken =
+                new UsernamePasswordAuthenticationToken(
+                        userDetails,
+                        null,
+                        userDetails.getAuthorities()
+                );
+        authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
+        SecurityContextHolder.getContext().setAuthentication(authToken);
     }
 }
-
-
-
-

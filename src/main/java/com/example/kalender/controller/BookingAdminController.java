@@ -8,8 +8,7 @@ import com.example.kalender.repository.BookingRepository;
 import com.example.kalender.service.BookingAdminService;
 import com.example.kalender.service.BookingService;
 import com.example.kalender.service.MailService;
-import jakarta.persistence.CascadeType;
-import jakarta.persistence.OneToMany;
+import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -36,13 +35,9 @@ public class BookingAdminController {
     }
 
     @PostMapping
-    public ResponseEntity<?> createForUser(@RequestBody AdminBookingRequest req) {
-        try {
-            var dto = bookingAdminService.createForUser(req);
-            return ResponseEntity.status(HttpStatus.CREATED).body(dto);
-        } catch (IllegalStateException e) {
-            return ResponseEntity.status(HttpStatus.CONFLICT).body(e.getMessage());
-        }
+    public ResponseEntity<?> createForUser(@Valid @RequestBody AdminBookingRequest req) {
+        var dto = bookingAdminService.createForUser(req);
+        return ResponseEntity.status(HttpStatus.CREATED).body(dto);
     }
 
     // Gibt alle Buchungen zurück (Admin-Übersicht)
@@ -98,5 +93,3 @@ public class BookingAdminController {
     }
 
 }
-
-

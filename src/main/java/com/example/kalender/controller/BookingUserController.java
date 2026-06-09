@@ -3,6 +3,7 @@ package com.example.kalender.controller;
 import com.example.kalender.dto.BookedSlotDTO;
 import com.example.kalender.dto.BookingDTO;
 import com.example.kalender.service.BookingService;
+import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -23,13 +24,9 @@ public class BookingUserController {
     // Erstellt eine neue Buchung für den aktuell eingeloggten Benutzer
     // BookingUserController.java
     @PostMapping
-    public ResponseEntity<?> create(@RequestBody BookingDTO dto) {
-        try {
-            BookingDTO created = bookingService.createBooking(dto);
-            return ResponseEntity.status(HttpStatus.CREATED).body(created);
-        } catch (IllegalStateException e) {
-            return ResponseEntity.status(HttpStatus.CONFLICT).body(e.getMessage());
-        }
+    public ResponseEntity<?> create(@Valid @RequestBody BookingDTO dto) {
+        BookingDTO created = bookingService.createBooking(dto);
+        return ResponseEntity.status(HttpStatus.CREATED).body(created);
     }
 
     // Gibt alle Buchungen des aktuell eingeloggten Benutzers zurück
@@ -43,4 +40,3 @@ public class BookingUserController {
         return bookingService.getAllAppointmentTimes();
     }
 }
-

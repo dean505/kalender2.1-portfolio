@@ -1,58 +1,59 @@
 package com.example.kalender.controller;
 
+import com.example.kalender.dto.AdminCreateUserDTO;
 import com.example.kalender.dto.UserDTO;
 import com.example.kalender.repository.BookingRepository;
 import com.example.kalender.service.AdminService;
-import com.example.kalender.repository.AppUserRepository;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotBlank;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.*;
 import org.springframework.security.access.prepost.PreAuthorize;
-import com.example.kalender.dto.AdminCreateUserDTO;
-
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
 
-// Nur für ADMINs – Benutzerverwaltung (Liste, löschen, Rolle ändern)
 @RestController
 @RequestMapping("/admin/users")
-@PreAuthorize("hasRole('ADMIN')")
+@PreAuthorize("hasAnyRole('ADMIN', 'SUPERADMIN')")
 public class UserAdminController {
 
     private final AdminService adminService;
-    private final AppUserRepository userRepository;
     private final BookingRepository bookingRepository;
 
-    public UserAdminController(AdminService adminService, AppUserRepository userRepository, BookingRepository bookingRepository) {
+    public UserAdminController(AdminService adminService, BookingRepository bookingRepository) {
         this.adminService = adminService;
-        this.userRepository = userRepository;
         this.bookingRepository = bookingRepository;
     }
 
-    // Gibt eine Liste aller Benutzer zurück
     @GetMapping
     public List<UserDTO> getAllUsers() {
         return adminService.findAllUsers();
     }
 
-    // Löscht einen Benutzer anhand der Benutzer-ID
     @DeleteMapping("/{userId}")
     public ResponseEntity<Void> deleteUser(@PathVariable Long userId) {
-        adminService.deleteUser(userId);
         if (bookingRepository.existsByUserId(userId)) {
-            throw new IllegalStateException("Benutzer hat noch Buchungen und kann nicht gelöscht werden.");
+            throw new IllegalStateException("Benutzer hat noch Buchungen und kann nicht geloescht werden.");
         }
+        adminService.deleteUser(userId);
         return ResponseEntity.noContent().build();
     }
 
-    // Ändert die Rolle eines Benutzers
     @PutMapping("/{userId}/role")
-    public ResponseEntity<Void> changeUserRole(@PathVariable Long userId, @RequestBody RoleChangeRequest request) {
+    public ResponseEntity<Void> changeUserRole(@PathVariable Long userId, @Valid @RequestBody RoleChangeRequest request) {
         adminService.changeUserRole(userId, request.role());
         return ResponseEntity.ok().build();
     }
 
     @PostMapping
-    public ResponseEntity<?> createUser(@RequestBody AdminCreateUserDTO dto) {
+    public ResponseEntity<Long> createUser(@Valid @RequestBody AdminCreateUserDTO dto) {
         Long id = adminService.createUser(
                 dto.name(),
                 dto.email(),
@@ -63,8 +64,5 @@ public class UserAdminController {
         return ResponseEntity.status(201).body(id);
     }
 
-    // Hilfsklasse für die Rollenänderung eines Benutzers
-    public record RoleChangeRequest(String role) {}
+    public record RoleChangeRequest(@NotBlank String role) {}
 }
-
-

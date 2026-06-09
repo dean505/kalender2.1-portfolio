@@ -2,6 +2,7 @@ package com.example.kalender.controller;
 
 import com.example.kalender.dto.ChangePasswordDTO;
 import com.example.kalender.service.AuthService;
+import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -18,17 +19,10 @@ public class UserPasswordController {
     }
 
     @PutMapping("/me/password")
-    public ResponseEntity<?> changeOwnPassword(@RequestBody ChangePasswordDTO dto) {
+    public ResponseEntity<?> changeOwnPassword(@Valid @RequestBody ChangePasswordDTO dto) {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
         String login = auth.getName(); // = E-Mail
-        try {
-            authService.changeOwnPassword(login, dto.currentPassword(), dto.newPassword());
-            return ResponseEntity.noContent().build(); // 204
-        } catch (IllegalArgumentException ex) {
-            return ResponseEntity.badRequest().body(ex.getMessage());
-        } catch (Exception ex) {
-            return ResponseEntity.status(500).body("Fehler: " + ex.getMessage());
-        }
+        authService.changeOwnPassword(login, dto.currentPassword(), dto.newPassword());
+        return ResponseEntity.noContent().build(); // 204
     }
 }
-

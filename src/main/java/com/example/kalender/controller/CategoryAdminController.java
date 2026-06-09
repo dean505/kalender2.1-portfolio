@@ -8,7 +8,7 @@ import org.springframework.web.bind.annotation.*;
 // Nur für ADMINs – Kategorien verwalten
 @RestController
 @RequestMapping("/admin/categories")
-@PreAuthorize("hasRole('ADMIN')")
+@PreAuthorize("hasAnyRole('ADMIN', 'SUPERADMIN')")
 public class CategoryAdminController {
 
     private final CategoryService categoryService;
@@ -35,5 +35,4 @@ public class CategoryAdminController {
         categoryService.delete(id);
     }
 }
-
 

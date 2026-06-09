@@ -24,8 +24,8 @@ export async function fetchWithAuth(path, method = "GET", body) {
   }
 
   if (!res.ok) {
-    const text = await res.text().catch(() => "");
-    throw new Error(`HTTP ${res.status} ${res.statusText}: ${text}`);
+    const message = await readErrorMessage(res);
+    throw new Error(message || `HTTP ${res.status} ${res.statusText}`);
   }
 
   // ---- robustes Parsing ----
@@ -40,4 +40,22 @@ export async function fetchWithAuth(path, method = "GET", body) {
   const text = await res.text().catch(() => "");
   if (!text) return null;
   try { return JSON.parse(text); } catch { return null; }
+}
+
+async function readErrorMessage(res) {
+  const text = await res.text().catch(() => "");
+  if (!text) return "";
+
+  try {
+    const payload = JSON.parse(text);
+    if (payload.fieldErrors) {
+      const fieldErrors = Object.entries(payload.fieldErrors)
+        .map(([field, message]) => `${field}: ${message}`)
+        .join(", ");
+      return fieldErrors || payload.message || text;
+    }
+    return payload.message || text;
+  } catch {
+    return text;
+  }
 }

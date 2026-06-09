@@ -3,18 +3,22 @@ package com.example.kalender.config;
 import com.example.kalender.entity.AppUser;
 import com.example.kalender.entity.Role;
 import com.example.kalender.repository.AppUserRepository;
+import jakarta.annotation.PostConstruct;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.security.crypto.password.PasswordEncoder;
 
-import javax.annotation.PostConstruct;
 import java.util.Optional;
 
 @Configuration
 public class AdminUserInitializer {
 
+    private static final Logger log = LoggerFactory.getLogger(AdminUserInitializer.class);
+
     private final AppUserRepository userRepository;
-    private final BCryptPasswordEncoder passwordEncoder;
+    private final PasswordEncoder passwordEncoder;
     private final boolean seedEnabled;
     private final String adminName;
     private final String adminEmail;
@@ -23,7 +27,7 @@ public class AdminUserInitializer {
 
     public AdminUserInitializer(
             AppUserRepository userRepository,
-            BCryptPasswordEncoder passwordEncoder,
+            PasswordEncoder passwordEncoder,
             @Value("${app.admin.seed.enabled:false}") boolean seedEnabled,
             @Value("${app.admin.seed.name:admin}") String adminName,
             @Value("${app.admin.seed.email:}") String adminEmail,
@@ -52,7 +56,7 @@ public class AdminUserInitializer {
         Optional<AppUser> existingAdmin = userRepository.findFirstByRole(Role.ADMIN);
 
         if (existingAdmin.isPresent()) {
-            System.out.println("Admin user already exists.");
+            log.info("Admin user already exists.");
             return;
         }
 
@@ -64,6 +68,6 @@ public class AdminUserInitializer {
         admin.setRole(Role.ADMIN);
 
         userRepository.save(admin);
-        System.out.println("Admin user created.");
+        log.info("Admin user created.");
     }
 }
