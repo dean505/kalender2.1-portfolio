@@ -15,5 +15,8 @@ public record BookingDTO(
         Long categoryId,
 
         String categoryName,
-        String userName
+        String userName,
+
+        Long masterId,
+        String masterName
 ) {}

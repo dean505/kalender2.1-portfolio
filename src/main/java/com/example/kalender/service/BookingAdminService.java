@@ -20,18 +20,21 @@ public class BookingAdminService {
     private final ArbeitstagRepository arbeitstagRepository;
     private final OeffnungszeitenRepository oeffnungszeitenRepository;
     private final MailService mailService;
+    private final MasterService masterService;
 
     public BookingAdminService(BookingRepository bookingRepository,
                                AppUserRepository userRepository,
                                CategoryRepository categoryRepository,
                                ArbeitstagRepository arbeitstagRepository,
-                               OeffnungszeitenRepository oeffnungszeitenRepository, MailService mailService) {
+                               OeffnungszeitenRepository oeffnungszeitenRepository, MailService mailService,
+                               MasterService masterService) {
         this.bookingRepository = bookingRepository;
         this.userRepository = userRepository;
         this.categoryRepository = categoryRepository;
         this.arbeitstagRepository = arbeitstagRepository;
         this.oeffnungszeitenRepository = oeffnungszeitenRepository;
         this.mailService = mailService;
+        this.masterService = masterService;
     }
 
     // Admin legt eine Buchung gezielt für userId an (nicht den eingeloggten Admin!)
@@ -42,6 +45,7 @@ public class BookingAdminService {
 
         Category category = categoryRepository.findById(req.categoryId())
                 .orElseThrow(() -> new IllegalStateException("Kategorie nicht gefunden: " + req.categoryId()));
+        Master master = masterService.resolveMaster(req.masterId());
 
         LocalDateTime start = req.appointmentTime();
         LocalDate date = start.toLocalDate();
@@ -70,8 +74,8 @@ public class BookingAdminService {
             throw new IllegalStateException("Buchung außerhalb der Öffnungszeiten.");
         }
 
-        // 4) Globale Kollision (alle Nutzer)
-        List<Booking> allBookings = bookingRepository.findAllByDate(date);
+        // 4) Kollision im Kalender des Masters
+        List<Booking> allBookings = bookingRepository.findAllByMasterAndDate(master.getId(), date);
         boolean anyConflict = allBookings.stream().anyMatch(existing -> {
             LocalDateTime existingStart = existing.getAppointmentTime();
             LocalDateTime existingEnd = existingStart.plusMinutes(existing.getCategory().getDurationMinutes());
@@ -85,6 +89,7 @@ public class BookingAdminService {
         Booking booking = new Booking();
         booking.setUser(targetUser);            // 🔴 entscheidend: gewählter User, nicht Admin
         booking.setCategory(category);
+        booking.setMaster(master);
         booking.setAppointmentTime(start);
         booking.setStatus(BookingStatus.PENDING);
 
@@ -100,8 +105,9 @@ public class BookingAdminService {
                 targetUser.getId(),
                 category.getId(),
                 category.getName(),
-                targetUser.getName()
+                targetUser.getName(),
+                master.getId(),
+                master.getName()
         );
     }
 }
-

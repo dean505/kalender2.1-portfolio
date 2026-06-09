@@ -19,6 +19,10 @@ public class Booking {
     @JoinColumn(name = "category_id")
     private Category category; // Die Kategorie der Buchung (z.B. Arzttermin, Meeting)
 
+    @ManyToOne
+    @JoinColumn(name = "master_id")
+    private Master master;
+
     @Enumerated(EnumType.STRING)
     private BookingStatus status;  // Der Status der Buchung (PENDING, CONFIRMED, REJECTED)
 
@@ -60,6 +64,14 @@ public class Booking {
         this.category = category; // Setzt die Kategorie der Buchung
     }
 
+    public Master getMaster() {
+        return master;
+    }
+
+    public void setMaster(Master master) {
+        this.master = master;
+    }
+
     public BookingStatus getStatus() {
         return status; // Gibt den Status der Buchung zurück
     }
@@ -68,7 +80,5 @@ public class Booking {
         this.status = status; // Setzt den Status der Buchung
     }
 }
-
-
 
 

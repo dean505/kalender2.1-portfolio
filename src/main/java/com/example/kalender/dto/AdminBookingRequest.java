@@ -12,5 +12,7 @@ public record AdminBookingRequest(
         Long categoryId,
 
         @NotNull(message = "Terminzeit muss ausgewaehlt sein")
-        LocalDateTime appointmentTime
+        LocalDateTime appointmentTime,
+
+        Long masterId
 ) {}

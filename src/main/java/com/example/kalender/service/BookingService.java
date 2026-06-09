@@ -21,16 +21,18 @@ public class BookingService {
     private final ArbeitstagRepository arbeitstagRepository;
     private final OeffnungszeitenRepository oeffnungszeitenRepository;
     private final MailService mailService;
+    private final MasterService masterService;
 
 
     public BookingService(BookingRepository bookingRepository, AppUserRepository userRepository, CategoryRepository categoryRepository, ArbeitstagRepository arbeitstagRepository,
-                          OeffnungszeitenRepository oeffnungszeitenRepository, MailService mailService) {
+                          OeffnungszeitenRepository oeffnungszeitenRepository, MailService mailService, MasterService masterService) {
         this.bookingRepository = bookingRepository;
         this.userRepository = userRepository;
         this.categoryRepository = categoryRepository;
         this.arbeitstagRepository = arbeitstagRepository;
         this.oeffnungszeitenRepository = oeffnungszeitenRepository;
         this.mailService = mailService;
+        this.masterService = masterService;
     }
 
     // Gibt alle Buchungen zurück
@@ -52,6 +54,7 @@ public class BookingService {
         // 2. Kategorie laden
         Category category = categoryRepository.findById(dto.categoryId())
                 .orElseThrow(() -> new RuntimeException("Kategorie nicht gefunden"));
+        Master master = masterService.resolveMaster(dto.masterId());
 
         LocalDate date = dto.appointmentTime().toLocalDate();
         LocalDateTime start = dto.appointmentTime();
@@ -79,8 +82,8 @@ public class BookingService {
             throw new IllegalStateException("Buchung außerhalb der Öffnungszeiten.");
         }
 
-        // 6. Globale Kollision
-        List<Booking> allBookings = bookingRepository.findAllByDate(date);
+        // 6. Kollision im Kalender des Masters
+        List<Booking> allBookings = bookingRepository.findAllByMasterAndDate(master.getId(), date);
         boolean hasConflict = allBookings.stream().anyMatch(existing -> {
             LocalDateTime existingStart = existing.getAppointmentTime();
             LocalDateTime existingEnd = existingStart.plusMinutes(existing.getCategory().getDurationMinutes());
@@ -94,6 +97,7 @@ public class BookingService {
         Booking booking = new Booking();
         booking.setUser(user);
         booking.setCategory(category);
+        booking.setMaster(master);
         booking.setAppointmentTime(start);
         booking.setStatus(BookingStatus.PENDING);
 
@@ -108,7 +112,9 @@ public class BookingService {
                 user.getId(),
                 category.getId(),
                 category.getName(),
-                user.getName()
+                user.getName(),
+                master.getId(),
+                master.getName()
         );
     }
 
@@ -146,6 +152,7 @@ public class BookingService {
     private BookingDTO mapToDTO(Booking booking) {
         Category category = booking.getCategory();
         AppUser user = booking.getUser();
+        Master master = booking.getMaster();
 
         return new BookingDTO(
                 booking.getId(),
@@ -153,7 +160,9 @@ public class BookingService {
                 user.getId(),
                 category != null ? category.getId() : null,
                 category != null ? category.getName() : null,
-                user.getName()
+                user.getName(),
+                master != null ? master.getId() : null,
+                master != null ? master.getName() : null
         );
     }
 
@@ -177,4 +186,3 @@ public class BookingService {
     }
 
 }
-

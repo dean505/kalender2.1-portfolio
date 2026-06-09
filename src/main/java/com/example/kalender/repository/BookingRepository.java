@@ -23,6 +23,8 @@ public interface BookingRepository extends JpaRepository<Booking, Long> {
             LocalDateTime end
     );
 
+    List<Booking> findByMasterIsNull();
+
     @Query("""
            SELECT CASE WHEN COUNT(b) > 0 THEN true ELSE false END
            FROM Booking b
@@ -49,6 +51,23 @@ public interface BookingRepository extends JpaRepository<Booking, Long> {
 
     default List<Booking> findAllByDate(java.time.LocalDate date) {
         return findAllBetween(date.atStartOfDay(), date.plusDays(1).atStartOfDay());
+    }
+
+    @Query("""
+           SELECT b
+           FROM Booking b
+           WHERE b.master.id = :masterId
+             AND b.appointmentTime >= :dayStart
+             AND b.appointmentTime < :dayEnd
+           """)
+    List<Booking> findAllByMasterBetween(
+            @Param("masterId") Long masterId,
+            @Param("dayStart") LocalDateTime dayStart,
+            @Param("dayEnd") LocalDateTime dayEnd
+    );
+
+    default List<Booking> findAllByMasterAndDate(Long masterId, java.time.LocalDate date) {
+        return findAllByMasterBetween(masterId, date.atStartOfDay(), date.plusDays(1).atStartOfDay());
     }
 
     @Query("""
