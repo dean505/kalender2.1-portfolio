@@ -3,35 +3,46 @@ import React, { useEffect, useMemo, useState } from "react";
 import moment from "moment";
 import "moment/locale/de";
 import { useNavigate } from "react-router-dom";
-import { parseJwt } from "../utils/jwt";
-import { fetchWithAuth } from "../utils/api";
 import { useBookingSchedule } from "../hooks/useBookingSchedule";
+import { useAuthGuard } from "../hooks/useAuthGuard";
+import { listCategories } from "../services/categoryService";
+import {
+  cancelAdminBooking,
+  confirmBooking as confirmBookingRequest,
+  createAdminBooking as createAdminBookingRequest,
+  listAdminBookings,
+  listBookedSlots,
+  listTodayBookings,
+  listUnconfirmedBookings,
+  rejectBooking as rejectBookingRequest,
+} from "../services/bookingService";
+import { listUsers, updateUserRole } from "../services/adminService";
 import AdminCreateUser from "../components/AdminCreateUser";
+import AdminCategoryManager from "../components/AdminCategoryManager";
 import SchedulePicker from "../components/SchedulePicker";
+import { clearToken } from "../services/sessionService";
+import UserAdminBlock from "../components/UserAdminBlock";
+import AdminWorkdaySettings from "../components/AdminWorkdaySettings";
 import "../assets/style.css";
 
 moment.locale("de");
 
 // ✨ Tabs
 const TAB = { CREATE_APPT: "CREATE_APPT", CREATE_USER: "CREATE_USER" };
+const ADMIN_ROLES = ["ROLE_ADMIN", "ROLE_SUPERADMIN"];
 const ADMIN_WORKDAY_PATH = (date) => `/admin/arbeitstag/datum/${date}`;
 const ADMIN_OPENING_HOURS_PATH = (date) => `/admin/oeffnungszeiten/datum/${date}`;
 
 export default function AdminPage() {
   const navigate = useNavigate();
+  const currentUser = useAuthGuard(ADMIN_ROLES);
 
   // ───────────────── Auth ─────────────────
   const [adminName, setAdminName] = useState("");
 
   useEffect(() => {
-    const token = localStorage.getItem("jwt");
-    if (!token) return navigate("/login");
-    const decoded = parseJwt(token);
-    if (!decoded || (decoded.role !== "ROLE_ADMIN" && decoded.role !== "ROLE_SUPERADMIN")) {
-      alert("Kein Zugriff");
-      return navigate("/login");
-    }
-    setAdminName(decoded.sub || decoded.name || "");
+    if (!currentUser) return;
+    setAdminName(currentUser.sub || currentUser.name || "");
 
     // Initial loads
     loadInitial();
@@ -40,10 +51,10 @@ export default function AdminPage() {
     loadToday();
     loadAllBookings();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [currentUser]);
 
   function logout() {
-    localStorage.removeItem("jwt");
+    clearToken();
     navigate("/login");
   }
 
@@ -60,7 +71,7 @@ export default function AdminPage() {
   const [selectedTime, setSelectedTime] = useState(""); // 'HH:mm'
 
   async function loadUsersAdmin() {
-    const data = await fetchWithAuth("/admin/users").catch(() => []);
+    const data = await listUsers().catch(() => []);
     setAllUsers(data || []);
   }
 
@@ -86,8 +97,8 @@ export default function AdminPage() {
 
   async function loadInitial() {
     const [cats, busy] = await Promise.all([
-      fetchWithAuth("/api/categories"),
-      fetchWithAuth("/api/bookings/alle-zeiten"),
+      listCategories(),
+      listBookedSlots(),
     ]);
     setCategories(cats || []);
     setBusyTimes(busy || []);
@@ -121,7 +132,7 @@ export default function AdminPage() {
     };
 
     try {
-      await fetchWithAuth("/admin/bookings", "POST", payload);
+      await createAdminBookingRequest(payload);
       alert("Termin wurde angelegt.");
       setSelectedTime("");
       await Promise.all([
@@ -129,7 +140,7 @@ export default function AdminPage() {
         loadToday(),
         loadUnconfirmed(),
         (async () => {
-          const busy = await fetchWithAuth("/api/bookings/alle-zeiten").catch(() => []);
+          const busy = await listBookedSlots().catch(() => []);
           setBusyTimes(busy || []);
         })()
       ]);
@@ -150,22 +161,22 @@ export default function AdminPage() {
   // ───────────────── Heute / Unconfirmed / All ─────────────────
   const [todayBookings, setTodayBookings] = useState([]);
   async function loadToday() {
-    const todays = await fetchWithAuth("/admin/bookings/today").catch(() => []);
+    const todays = await listTodayBookings().catch(() => []);
     setTodayBookings(todays || []);
   }
 
   const [unconfirmed, setUnconfirmed] = useState([]);
   async function loadUnconfirmed() {
-    const data = await fetchWithAuth("/admin/bookings/unconfirmed").catch(() => []);
+    const data = await listUnconfirmedBookings().catch(() => []);
     setUnconfirmed(data || []);
   }
   async function confirmBooking(id) {
-    await fetchWithAuth(`/admin/bookings/${id}/confirm`, "PUT");
+    await confirmBookingRequest(id);
     loadUnconfirmed();
     loadToday();
   }
   async function rejectBooking(id) {
-    await fetchWithAuth(`/admin/bookings/${id}/reject`, "PUT");
+    await rejectBookingRequest(id);
     loadUnconfirmed();
     loadToday();
   }
@@ -176,7 +187,7 @@ export default function AdminPage() {
   const [bookingSearch, setBookingSearch] = useState("");
 
   async function loadAllBookings() {
-    let arr = await fetchWithAuth("/admin/bookings").catch(() => []);
+    let arr = await listAdminBookings().catch(() => []);
     const now = new Date();
     arr = (arr || []).filter((b) => new Date(b.appointmentTime) >= now);
     setAllBookings(arr);
@@ -198,81 +209,15 @@ export default function AdminPage() {
 
   async function cancelBookingAdmin(id) {
     if (!window.confirm("Termin stornieren?")) return;
-    await fetchWithAuth(`/admin/bookings/${id}`, "DELETE");
+    await cancelAdminBooking(id);
     loadAllBookings();
     loadToday();
   }
 
-  // ───────────────── Kategorien ─────────────────
-  const [catFormOpen, setCatFormOpen] = useState(false);
-  const [catListOpen, setCatListOpen] = useState(false);
-  const [catForm, setCatForm] = useState({
-    id: "",
-    name: "",
-    description: "",
-    durationMinutes: "",
-  });
-
   async function reloadCategories() {
-    const cats = await fetchWithAuth("/api/categories");
+    const cats = await listCategories();
     setCategories(cats || []);
   }
-
-  async function saveCategory(e) {
-    e.preventDefault();
-    const { id, name, description, durationMinutes } = catForm;
-    const body = {
-      name,
-      description,
-      durationMinutes: Number(durationMinutes),
-    };
-    const method = id ? "PUT" : "POST";
-    const url = id ? `/admin/categories/${id}` : "/admin/categories";
-    await fetchWithAuth(url, method, body);
-    alert(`Kategorie ${id ? "aktualisiert" : "erstellt"}.`);
-    setCatForm({ id: "", name: "", description: "", durationMinutes: "" });
-    reloadCategories();
-  }
-
-  function editCategory(cat) {
-    setCatForm({
-      id: cat.id,
-      name: cat.name,
-      description: cat.description,
-      durationMinutes: cat.durationMinutes ?? 40,
-    });
-    setCatFormOpen(true);
-  }
-
-  async function deleteCategory(id) {
-    if (!window.confirm("Kategorie wirklich löschen?")) return;
-    await fetchWithAuth(`/admin/categories/${id}`, "DELETE");
-    reloadCategories();
-  }
-
-  async function submitLock(e) {
-    e.preventDefault();
-    await fetchWithAuth(`/admin/arbeitstag/datum/${lockForm.date}`, "PUT", {
-      istGesperrt: lockForm.lock === "true",
-    });
-    alert("Arbeitstag aktualisiert");
-    refreshDisabledForWeek(lockForm.date);
-  }
-  async function submitHours(e) {
-    e.preventDefault();
-    await fetchWithAuth(`/admin/oeffnungszeiten/datum/${hoursForm.date}`, "PUT", {
-      startUhrzeit: hoursForm.open,
-      endUhrzeit: hoursForm.close,
-    });
-    alert("Öffnungszeiten gespeichert");
-    if (selectedDate === hoursForm.date) {
-      setSelectedTime("");
-      setSelectedDate(hoursForm.date);
-    }
-  }
-
-  const [lockForm, setLockForm] = useState({ date: "", lock: "true" });
-  const [hoursForm, setHoursForm] = useState({ date: "", open: "", close: "" });
 
   function isPastToday(dateISO, hhmm) {
     const today = moment().format("YYYY-MM-DD");
@@ -468,7 +413,7 @@ export default function AdminPage() {
               );
               if (created && desiredRole && desiredRole !== "USER") {
                 try {
-                  await fetchWithAuth(`/admin/users/${created.id}/role`, "PUT", { role: desiredRole });
+                  await updateUserRole(created.id, desiredRole);
                   await loadUsersAdmin();
                 } catch {}
               }
@@ -523,155 +468,22 @@ export default function AdminPage() {
         </ul>
       </section>
 
-      {/* Kategorien */}
-      <section className="admin-card">
-        <h3 style={{ display: "flex", gap: 8 }}>
-          <button className="btn btn--primary" onClick={() => setCatFormOpen((v) => !v)}>
-            + Kategorie erstellen
-          </button>
-          <button className="btn btn--light" onClick={() => setCatListOpen((v) => !v)}>
-            Kategorien verwalten
-          </button>
-        </h3>
-
-        {catFormOpen && (
-          <form className="grid grid--2" onSubmit={saveCategory}>
-            <input type="hidden" value={catForm.id} readOnly />
-            <label>
-              <span className="label">Name</span>
-              <input
-                className="input"
-                value={catForm.name}
-                onChange={(e) => setCatForm({ ...catForm, name: e.target.value })}
-                required
-              />
-            </label>
-            <label>
-              <span className="label">Dauer (Min)</span>
-              <input
-                type="number"
-                className="input"
-                value={catForm.durationMinutes}
-                onChange={(e) => setCatForm({ ...catForm, durationMinutes: e.target.value })}
-                required
-              />
-            </label>
-            <label className="grid--full">
-              <span className="label">Beschreibung</span>
-              <input
-                className="input"
-                value={catForm.description}
-                onChange={(e) => setCatForm({ ...catForm, description: e.target.value })}
-                required
-              />
-            </label>
-            <div className="grid--full" style={{ textAlign: "right" }}>
-              <button className="btn btn--primary" type="submit">
-                {catForm.id ? "Aktualisieren" : "Erstellen"}
-              </button>
-            </div>
-          </form>
-        )}
-
-        {catListOpen && (
-          <ul className="list">
-            {(categories || []).map((c) => (
-              <li key={c.id} className="list-row">
-                <div>
-                  {c.name} <span className="muted">({c.durationMinutes} Min)</span> – {c.description}
-                </div>
-                <div className="row-actions">
-                  <button className="btn btn--light" onClick={() => editCategory(c)}>
-                    Bearbeiten
-                  </button>
-                  <button className="btn btn--danger" onClick={() => deleteCategory(c.id)}>
-                    Löschen
-                  </button>
-                </div>
-              </li>
-            ))}
-            {(!categories || categories.length === 0) && <li>Keine Kategorien vorhanden.</li>}
-          </ul>
-        )}
-      </section>
+      <AdminCategoryManager
+        categories={categories}
+        reloadCategories={reloadCategories}
+      />
 
       {/* Benutzerverwaltung (Suche + Paging + Rollen + Löschen) */}
       <UserAdminBlock allUsers={allUsers} reloadUsers={loadUsersAdmin} />
 
-      {/* Arbeitstag sperren/freigeben */}
-      <section className="admin-card">
-        <h3>Arbeitstag verwalten</h3>
-        <form className="grid grid--3" onSubmit={submitLock}>
-          <label>
-            <span className="label">Datum</span>
-            <input
-              type="date"
-              className="input"
-              value={lockForm.date}
-              onChange={(e) => setLockForm({ ...lockForm, date: e.target.value })}
-              required
-            />
-          </label>
-          <label>
-            <span className="label">Status</span>
-            <select
-              className="input"
-              value={lockForm.lock}
-              onChange={(e) => setLockForm({ ...lockForm, lock: e.target.value })}
-            >
-              <option value="true">Sperren</option>
-              <option value="false">Freigeben</option>
-            </select>
-          </label>
-          <div className="grid--align-end">
-            <button className="btn btn--primary" type="submit">
-              Speichern
-            </button>
-          </div>
-        </form>
-      </section>
-
-      {/* Öffnungszeiten */}
-      <section className="admin-card">
-        <h3>Arbeitszeit verwalten</h3>
-        <form className="grid grid--4" onSubmit={submitHours}>
-          <label>
-            <span className="label">Datum</span>
-            <input
-              type="date"
-              className="input"
-              value={hoursForm.date}
-              onChange={(e) => setHoursForm({ ...hoursForm, date: e.target.value })}
-              required
-            />
-          </label>
-          <label>
-            <span className="label">Öffnungszeit</span>
-            <input
-              type="time"
-              className="input"
-              value={hoursForm.open}
-              onChange={(e) => setHoursForm({ ...hoursForm, open: e.target.value })}
-              required
-            />
-          </label>
-          <label>
-            <span className="label">Schließzeit</span>
-            <input
-              type="time"
-              className="input"
-              value={hoursForm.close}
-              onChange={(e) => setHoursForm({ ...hoursForm, close: e.target.value })}
-              required
-            />
-          </label>
-          <div className="grid--align-end">
-            <button className="btn btn--primary" type="submit">
-              Speichern
-            </button>
-          </div>
-        </form>
-      </section>
+      <AdminWorkdaySettings
+        onWorkdayUpdated={refreshDisabledForWeek}
+        onOpeningHoursUpdated={(date) => {
+          if (selectedDate === date) {
+            setSelectedTime("");
+          }
+        }}
+      />
 
       {/* Alle zukünftigen Buchungen */}
       <section className="admin-card">
@@ -736,121 +548,3 @@ export default function AdminPage() {
 }
 
 /* ───────────────── Sub-Komponente: Benutzerverwaltung ───────────────── */
-function UserAdminBlock({ allUsers, reloadUsers }) {
-  const [userSearch, setUserSearch] = useState("");
-  const [usersPage, setUsersPage] = useState(0);
-  const usersPerPage = 5;
-
-  const filteredUsers = useMemo(() => {
-    const q = userSearch.toLowerCase().trim();
-    if (!q) return allUsers || [];
-    return (allUsers || []).filter(
-      (u) =>
-        (u.name || "").toLowerCase().includes(q) ||
-        (u.email || "").toLowerCase().includes(q)
-    );
-  }, [allUsers, userSearch]);
-
-  const usersSlice = useMemo(() => {
-    const start = usersPage * usersPerPage;
-    return filteredUsers.slice(start, start + usersPerPage);
-  }, [filteredUsers, usersPage]);
-
-  async function changeUserRole(userId, role) {
-    try {
-      await fetchWithAuth(`/admin/users/${userId}/role`, "PUT", { role });
-      await (reloadUsers?.());
-    } catch (e) {
-      alert("Rolle konnte nicht geändert werden.");
-      console.error(e);
-    }
-  }
-
-  async function deleteUser(userId) {
-    if (!window.confirm("Benutzer wirklich löschen?")) return;
-    try {
-      await fetchWithAuth(`/admin/users/${userId}`, "DELETE");
-      await (reloadUsers?.());
-    } catch (e) {
-      alert("Benutzer konnte nicht gelöscht werden.");
-      console.error(e);
-    }
-  }
-
-  return (
-    <section className="admin-card">
-      <h3>Benutzerverwaltung</h3>
-
-      <div className="toolbar">
-        <input
-          className="input"
-          placeholder="Benutzer suchen…"
-          value={userSearch}
-          onChange={(e) => {
-            setUserSearch(e.target.value);
-            setUsersPage(0);
-          }}
-          style={{ maxWidth: 320 }}
-        />
-      </div>
-
-      <ul className="list">
-        {usersSlice.map((u) => (
-          <li key={u.id} className="list-row">
-            <div>
-              {u.name}{" "}
-              <span className="badge" style={{ marginLeft: 8 }}>
-                {u.role}
-              </span>
-              <div className="muted" style={{ fontSize: 12 }}>
-                {u.email || u.username}
-              </div>
-            </div>
-            <div className="row-actions">
-              {u.role !== "ADMIN" && (
-                <button
-                  className="btn btn--primary"
-                  onClick={() => changeUserRole(u.id, "ADMIN")}
-                >
-                  zu ADMIN
-                </button>
-              )}
-              {u.role !== "USER" && (
-                <button
-                  className="btn btn--primary"
-                  onClick={() => changeUserRole(u.id, "USER")}
-                >
-                  zu USER
-                </button>
-              )}
-              <button
-                className="btn btn--danger"
-                onClick={() => deleteUser(u.id)}
-              >
-                Löschen
-              </button>
-            </div>
-          </li>
-        ))}
-        {usersSlice.length === 0 && <li>Keine Treffer.</li>}
-      </ul>
-
-      <div className="pager">
-        <button
-          className="btn btn--light"
-          disabled={usersPage === 0}
-          onClick={() => setUsersPage((p) => p - 1)}
-        >
-          ← Zurück
-        </button>
-        <button
-          className="btn btn--light"
-          disabled={(usersPage + 1) * usersPerPage >= filteredUsers.length}
-          onClick={() => setUsersPage((p) => p + 1)}
-        >
-          Weiter →
-        </button>
-      </div>
-    </section>
-  );
-}

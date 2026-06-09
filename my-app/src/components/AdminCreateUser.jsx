@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { API_BASE } from "../utils/api";
+import { registerUser } from "../services/authService";
 
 const EMPTY_FORM = {
   name: "",
@@ -24,21 +24,12 @@ export default function AdminCreateUser({ onCreated }) {
     setError("");
 
     try {
-      const res = await fetch(`${API_BASE}/auth/register`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: form.name.trim(),
-          email: form.email.trim(),
-          password: form.password,
-          telefonnummer: form.telefonnummer.trim(),
-        }),
+      await registerUser({
+        name: form.name.trim(),
+        email: form.email.trim(),
+        password: form.password,
+        telefonnummer: form.telefonnummer.trim(),
       });
-
-      if (!res.ok) {
-        const text = await res.text();
-        throw new Error(text || `Fehler ${res.status}`);
-      }
 
       await onCreated?.(form.email, form.role);
       alert("Benutzer wurde angelegt.");

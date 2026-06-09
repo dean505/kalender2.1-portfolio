@@ -3,20 +3,25 @@ import React, { useEffect, useMemo, useState } from "react";
 import moment from "moment";
 import "moment/locale/de";
 import { useNavigate } from "react-router-dom";
-import { parseJwt } from "../utils/jwt";
-import { fetchWithAuth } from "../utils/api";
 import { useBookingSchedule } from "../hooks/useBookingSchedule";
+import { useAuthGuard } from "../hooks/useAuthGuard";
+import { listCategories } from "../services/categoryService";
+import { createUserBooking, listBookedSlots, listMyBookings } from "../services/bookingService";
+import { changeMyPassword } from "../services/userService";
 import "../assets/style.css";
 import SchedulePicker from "../components/SchedulePicker";
+import { clearToken } from "../services/sessionService";
 
 moment.locale("de");
 
 const STEP = { PICK_CATEGORY: 1, PICK_TIME: 2 };
+const USER_ROLES = ["ROLE_USER", "ROLE_ADMIN"];
 const USER_WORKDAY_PATH = (date) => `/api/arbeitstag/datum/${date}`;
 const USER_OPENING_HOURS_PATH = (date) => `/api/oeffnungszeiten/datum/${date}`;
 
 export default function UserPage() {
   const navigate = useNavigate();
+  const currentUser = useAuthGuard(USER_ROLES);
 
   // auth / user
   const [username, setUsername] = useState("");
@@ -41,23 +46,17 @@ export default function UserPage() {
   );
 
   useEffect(() => {
-    const token = localStorage.getItem("jwt");
-    if (!token) return navigate("/login");
-    const decoded = parseJwt(token);
-    if (!decoded || (decoded.role !== "ROLE_USER" && decoded.role !== "ROLE_ADMIN")) {
-      alert("Kein Zugriff");
-      return navigate("/login");
-    }
-    setUsername(decoded.sub || decoded.name || "");
+    if (!currentUser) return;
+    setUsername(currentUser.sub || currentUser.name || "");
     loadInitial();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [currentUser]);
 
   async function loadInitial() {
     const [cats, mine, busy] = await Promise.all([
-      fetchWithAuth("/api/categories"),
-      fetchWithAuth("/api/bookings/me"),
-      fetchWithAuth("/api/bookings/alle-zeiten"),
+      listCategories(),
+      listMyBookings(),
+      listBookedSlots(),
     ]);
     setCategories(cats || []);
     const now = new Date(); now.setHours(0,0,0,0);
@@ -82,7 +81,7 @@ export default function UserPage() {
   async function createBooking() {
     if (!selectedCat || !appointmentISO) return;
     const iso = appointmentISO.length === 16 ? `${appointmentISO}:00` : appointmentISO; // Sekunden anhängen
-    await fetchWithAuth("/api/bookings", "POST", {
+    await createUserBooking({
       appointmentTime: iso,
       categoryId: selectedCat.id,
     });
@@ -103,7 +102,7 @@ export default function UserPage() {
   }
 
   function logout() {
-    localStorage.removeItem("jwt");
+    clearToken();
     navigate("/login");
   }
 
@@ -256,7 +255,7 @@ function ChangePasswordModal({ open, onClose, onSaved }) {
 
     try {
       setSaving(true);
-      await fetchWithAuth("/api/users/me/password", "PUT", {
+      await changeMyPassword({
         currentPassword,
         newPassword,
       });

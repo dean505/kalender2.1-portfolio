@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { parseJwt } from "../utils/jwt";
-import { API_BASE } from "../utils/api";
+import { login } from "../services/authService";
+import { getCurrentUser, getRoleRedirect, setToken } from "../services/sessionService";
 import "../assets/style.css";
 
 const LoginPage = () => {
@@ -12,37 +12,26 @@ const LoginPage = () => {
 
   useEffect(() => {
     const token = localStorage.getItem("jwt");
-    if (token) {
-      const role = parseJwt(token).role;
-      navigate(role === "ROLE_ADMIN" ? "/admin" : "/user");
+    const currentUser = getCurrentUser();
+    if (token && currentUser) {
+      navigate(getRoleRedirect(currentUser.role));
     }
   }, [navigate]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    const response = await fetch(`${API_BASE}/auth/login`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email: email.trim(), password }),
-    });
-
-    const text = await response.text();
     let token;
-    try { token = JSON.parse(text || "{}").token; } catch {}
-
-    if (!response.ok) {
-      setErrorMessage(`Login fehlgeschlagen (${response.status}). ${text || ""}`);
-      return;
-    }
-    if (!token) {
-      setErrorMessage("Login fehlgeschlagen: Server hat kein Token geliefert.");
+    try {
+      token = await login({ email: email.trim(), password });
+    } catch (err) {
+      setErrorMessage(err?.message || "Login fehlgeschlagen.");
       return;
     }
 
-    localStorage.setItem("jwt", token);
-    const role = parseJwt(token).role || "";
-    navigate(role === "ROLE_ADMIN" ? "/admin" : "/user");
+    setToken(token);
+    const currentUser = getCurrentUser();
+    navigate(getRoleRedirect(currentUser?.role || ""));
   };
 
   return (
@@ -83,6 +72,4 @@ const LoginPage = () => {
 };
 
 export default LoginPage;
-
-
 

@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { API_BASE } from "../utils/api";
+import { registerUser } from "../services/authService";
 import "../assets/style.css";
 
 const RegisterPage = () => {
@@ -17,24 +17,16 @@ const RegisterPage = () => {
     const payload = { name, email, password, telefonnummer };
 
     try {
-      const response = await fetch(`${API_BASE}/auth/register`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-
-      if (response.ok) {
-        alert("Erfolgreich registriert! Du kannst dich jetzt einloggen.");
-        navigate("/login");
-      } else if (response.status === 409) {
-        setErrorMessage("E‑Mail ist bereits vergeben.");
-      } else {
-        const txt = await response.text();
-        setErrorMessage(`Registrierung fehlgeschlagen. ${txt || ""}`);
-      }
+      await registerUser(payload);
+      alert("Erfolgreich registriert! Du kannst dich jetzt einloggen.");
+      navigate("/login");
     } catch (err) {
       console.error("Fehler bei der Registrierung:", err);
-      setErrorMessage("Ein Fehler ist aufgetreten.");
+      setErrorMessage(
+        err?.status === 409
+          ? "E-Mail ist bereits vergeben."
+          : `Registrierung fehlgeschlagen. ${err?.message || ""}`
+      );
     }
   };
 
@@ -46,7 +38,7 @@ const RegisterPage = () => {
           <label className="label">Name</label>
           <input className="input" type="text" value={name} onChange={e => setName(e.target.value)} required />
 
-          <label className="label">E‑Mail</label>
+          <label className="label">E-Mail</label>
           <input className="input" type="email" value={email} onChange={e => setEmail(e.target.value)} required />
 
           <label className="label">Telefonnummer</label>
@@ -68,6 +60,3 @@ const RegisterPage = () => {
 };
 
 export default RegisterPage;
-
-
-
