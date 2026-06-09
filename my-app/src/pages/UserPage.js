@@ -1,17 +1,19 @@
 // src/pages/UserPage.js
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import moment from "moment";
 import "moment/locale/de";
 import { useNavigate } from "react-router-dom";
 import { parseJwt } from "../utils/jwt";
 import { fetchWithAuth } from "../utils/api";
-import { buildAvailableSlots, getWeekDates } from "../utils/appointmentSlots";
+import { useBookingSchedule } from "../hooks/useBookingSchedule";
 import "../assets/style.css";
-import WeekPicker from "../components/WeekPicker";
+import SchedulePicker from "../components/SchedulePicker";
 
 moment.locale("de");
 
 const STEP = { PICK_CATEGORY: 1, PICK_TIME: 2 };
+const USER_WORKDAY_PATH = (date) => `/api/arbeitstag/datum/${date}`;
+const USER_OPENING_HOURS_PATH = (date) => `/api/oeffnungszeiten/datum/${date}`;
 
 export default function UserPage() {
   const navigate = useNavigate();
@@ -23,9 +25,6 @@ export default function UserPage() {
   const [categories, setCategories] = useState([]);     // [{ id, name, description, durationMinutes, price }]
   const [myBookings, setMyBookings] = useState([]);     // [{ id, appointmentTime, categoryId, categoryName }]
   const [busyTimes, setBusyTimes] = useState([]);       // ISO-Strings (Startzeiten)
-
-  // days disabled in WeekPicker (Vergangenheit + gesperrt)
-  const [disabledDays, setDisabledDays] = useState(new Set()); // Set("YYYY-MM-DD")
 
   // steps / selection
   const [step, setStep] = useState(STEP.PICK_CATEGORY);
@@ -66,70 +65,18 @@ export default function UserPage() {
     setBusyTimes(busy || []);
   }
 
-  // --- Schritt 2: SLOTS ---
-  const [openInfo, setOpenInfo] = useState(null); // { start, end, gesperrt }
-  const [slots, setSlots] = useState([]); // ["HH:mm"]
-
-  useEffect(() => {
-    if (!selectedDate || !selectedCat) {
-      setOpenInfo(null);
-      setSlots([]);
-      return;
-    }
-    (async () => {
-      // 1) Arbeitstag gesperrt?
-      const wt = await fetchWithAuth(`/api/arbeitstag/datum/${selectedDate}`).catch(() => null);
-      if (wt?.istGesperrt) {
-        setOpenInfo({ gesperrt: true });
-        setSlots([]);
-        return;
-      }
-      // 2) Öffnungszeiten
-      const oh = await fetchWithAuth(`/api/oeffnungszeiten/datum/${selectedDate}`).catch(() => null);
-      const startUhrzeit = oh?.startUhrzeit;
-      const endUhrzeit   = oh?.endUhrzeit;
-      setOpenInfo({ start: startUhrzeit, end: endUhrzeit, gesperrt: false });
-
-      if (!startUhrzeit || !endUhrzeit) {
-        setSlots([]);
-        return;
-      }
-
-      setSlots(buildAvailableSlots({
-        date: selectedDate,
-        openTime: startUhrzeit,
-        closeTime: endUhrzeit,
-        durationMinutes: selectedCat.durationMinutes ?? 40,
-        busyTimes,
-      }));
-    })();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedDate, selectedCat, busyTimes]);
-
-  const refreshDisabledForWeek = useCallback(async (anchor) => {
-    const weekDates = getWeekDates(anchor || moment().format("YYYY-MM-DD"));
-    const results = await Promise.all(
-      weekDates.map(d => fetchWithAuth(`/api/arbeitstag/datum/${d}`).catch(() => null))
-    );
-
-    const s = new Set();
-    results.forEach((wd, idx) => {
-      const d = weekDates[idx];
-      if (wd?.istGesperrt === true) s.add(d);
-    });
-
-    const today = moment().format("YYYY-MM-DD");
-    weekDates.forEach(d => {
-      if (moment(d).isBefore(today, "day")) s.add(d);
-    });
-
-    setDisabledDays(s);
-  }, []);
-
-  // --- Gesperrte Tage der aktuellen Woche laden (und Vergangenheit sperren) ---
-  useEffect(() => {
-    refreshDisabledForWeek(selectedDate || moment().format("YYYY-MM-DD"));
-  }, [refreshDisabledForWeek, selectedDate]);
+  const {
+    disabledDays,
+    openInfo,
+    refreshDisabledForWeek,
+    slots,
+  } = useBookingSchedule({
+    selectedDate,
+    selectedCategory: selectedCat,
+    busyTimes,
+    workdayPath: USER_WORKDAY_PATH,
+    openingHoursPath: USER_OPENING_HOURS_PATH,
+  });
 
 
   async function createBooking() {
@@ -209,51 +156,18 @@ export default function UserPage() {
 
           {/* Zwei Spalten: links Kalender/Slots, rechts kompakte Zusammenfassung */}
           <div className="booking-layout">
-            <div>
-              <label className="label">Wählen Sie einen Tag und eine Uhrzeit</label>
-              <WeekPicker
-                value={selectedDate || moment().format("YYYY-MM-DD")}
-                onChange={(d) => { setSelectedDate(d); setSelectedTime(""); }}
-                minDate={moment().format("YYYY-MM-DD")}
-                disabledDates={disabledDays}
-                onWeekVisible={refreshDisabledForWeek}
-              />
-
-              {selectedDate && (
-                <div style={{ marginTop: 8, color: openInfo?.gesperrt ? "#b91c1c" : "#6b7280" }}>
-                  {!openInfo
-                    ? "Lade Öffnungszeiten..."
-                    : openInfo.gesperrt
-                      ? "An diesem Tag sind keine Buchungen möglich (gesperrt)."
-                      : openInfo.start && openInfo.end
-                        ? `Geöffnet: ${openInfo.start} - ${openInfo.end}`
-                        : "Für diesen Tag sind keine Öffnungszeiten hinterlegt."}
-                </div>
-              )}
-
-              {selectedDate && !openInfo?.gesperrt && openInfo?.start && openInfo?.end && (
-                <>
-                  <div style={{ margin: "8px 0" }}>Welche Zeit passt Ihnen am besten?</div>
-                  <div className="slot-grid">
-                    {slots.map((t) => {
-                      const past = isPastToday(selectedDate, t);
-                      return (
-                        <button
-                          key={t}
-                          className={`slot ${selectedTime === t ? "slot--active" : ""}`}
-                          disabled={past}
-                          onClick={() => !past && setSelectedTime(t)}
-                          title={past ? "Zeitpunkt ist bereits vorbei" : ""}
-                        >
-                          {t}
-                        </button>
-                      );
-                    })}
-                    {slots.length === 0 && <div className="muted">Keine freien Zeiten.</div>}
-                  </div>
-                </>
-              )}
-            </div>
+            <SchedulePicker
+              disabledDays={disabledDays}
+              isSlotDisabled={(time) => isPastToday(selectedDate, time)}
+              onDateChange={setSelectedDate}
+              onTimeChange={setSelectedTime}
+              onWeekVisible={refreshDisabledForWeek}
+              openInfo={openInfo}
+              prompt="Welche Zeit passt Ihnen am besten?"
+              selectedDate={selectedDate}
+              selectedTime={selectedTime}
+              slots={slots}
+            />
 
             {/* rechte Spalte */}
             <div className="side-card">

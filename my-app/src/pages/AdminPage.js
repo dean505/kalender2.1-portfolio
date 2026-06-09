@@ -1,18 +1,21 @@
 // src/pages/AdminPage.js
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import moment from "moment";
 import "moment/locale/de";
 import { useNavigate } from "react-router-dom";
 import { parseJwt } from "../utils/jwt";
-import { API_BASE, fetchWithAuth } from "../utils/api";
-import { buildAvailableSlots, getWeekDates } from "../utils/appointmentSlots";
-import WeekPicker from "../components/WeekPicker";
+import { fetchWithAuth } from "../utils/api";
+import { useBookingSchedule } from "../hooks/useBookingSchedule";
+import AdminCreateUser from "../components/AdminCreateUser";
+import SchedulePicker from "../components/SchedulePicker";
 import "../assets/style.css";
 
 moment.locale("de");
 
 // ✨ Tabs
 const TAB = { CREATE_APPT: "CREATE_APPT", CREATE_USER: "CREATE_USER" };
+const ADMIN_WORKDAY_PATH = (date) => `/admin/arbeitstag/datum/${date}`;
+const ADMIN_OPENING_HOURS_PATH = (date) => `/admin/oeffnungszeiten/datum/${date}`;
 
 export default function AdminPage() {
   const navigate = useNavigate();
@@ -92,70 +95,18 @@ export default function AdminPage() {
 
   const [selectedCat, setSelectedCat] = useState(null);
 
-  const [openInfo, setOpenInfo] = useState(null); // { start, end, gesperrt }
-  const [slots, setSlots] = useState([]); // ["HH:mm"]
-  const [disabledDays, setDisabledDays] = useState(new Set()); // Set("YYYY-MM-DD")
-
-  // Disabled-Tage der Woche (Sperrtage) laden
-  const refreshDisabledForWeek = useCallback(async (anchorDateStr) => {
-    if (!anchorDateStr) return;
-    const reqDates = getWeekDates(anchorDateStr);
-
-    const res = await Promise.all(
-      reqDates.map(async (date) => {
-        const wt = await fetchWithAuth(`/admin/arbeitstag/datum/${date}`).catch(() => null);
-        return { date, gesperrt: !!wt?.istGesperrt };
-      })
-    );
-
-    const disabled = new Set(res.filter((r) => r.gesperrt).map((r) => r.date));
-    setDisabledDays(disabled);
-  }, []);
-
-  // Slots generieren (Öffnungszeiten, Sperre, Busy)
-  useEffect(() => {
-    if (!selectedDate || !selectedCat) {
-      setOpenInfo(null);
-      setSlots([]);
-      return;
-    }
-
-    (async () => {
-      // gesperrt?
-      const wt = await fetchWithAuth(`/admin/arbeitstag/datum/${selectedDate}`).catch(() => null);
-      if (wt?.istGesperrt) {
-        setOpenInfo({ gesperrt: true });
-        setSlots([]);
-        return;
-      }
-
-      // Öffnungszeiten
-      const oh = await fetchWithAuth(`/admin/oeffnungszeiten/datum/${selectedDate}`).catch(() => null);
-      const startUhrzeit = oh?.startUhrzeit;
-      const endUhrzeit = oh?.endUhrzeit;
-      setOpenInfo({ start: startUhrzeit, end: endUhrzeit, gesperrt: false });
-
-      if (!startUhrzeit || !endUhrzeit) {
-        setSlots([]);
-        return;
-      }
-
-      setSlots(buildAvailableSlots({
-        date: selectedDate,
-        openTime: startUhrzeit,
-        closeTime: endUhrzeit,
-        durationMinutes: selectedCat.durationMinutes ?? 40,
-        busyTimes,
-      }));
-    })();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedDate, selectedCat, busyTimes]);
-
-  // WeekPicker: beim Wechsel Woche/Datum Sperrtage nachladen
-  useEffect(() => {
-    const anchor = selectedDate || moment().format("YYYY-MM-DD");
-    refreshDisabledForWeek(anchor);
-  }, [refreshDisabledForWeek, selectedDate]);
+  const {
+    disabledDays,
+    openInfo,
+    refreshDisabledForWeek,
+    slots,
+  } = useBookingSchedule({
+    selectedDate,
+    selectedCategory: selectedCat,
+    busyTimes,
+    workdayPath: ADMIN_WORKDAY_PATH,
+    openingHoursPath: ADMIN_OPENING_HOURS_PATH,
+  });
 
   async function createAdminBooking() {
     if (!pickedUser?.id) { alert("Bitte zuerst einen Benutzer auswählen."); return; }
@@ -446,52 +397,19 @@ export default function AdminPage() {
               </div>
             </div>
 
-            {/* WeekPicker & Slots */}
+            {/* Schedule picker */}
             <div className="grid--full">
-              <label className="label">Wählen Sie einen Tag und eine Uhrzeit</label>
-
-              <WeekPicker
-                value={selectedDate || moment().format("YYYY-MM-DD")}
-                onChange={(d) => { setSelectedDate(d); setSelectedTime(""); }}
-                minDate={moment().format("YYYY-MM-DD")}
-                disabledDates={disabledDays}
+              <SchedulePicker
+                disabledDays={disabledDays}
+                isSlotDisabled={(time) => isPastToday(selectedDate, time)}
+                onDateChange={setSelectedDate}
+                onTimeChange={setSelectedTime}
                 onWeekVisible={refreshDisabledForWeek}
+                openInfo={openInfo}
+                selectedDate={selectedDate}
+                selectedTime={selectedTime}
+                slots={slots}
               />
-
-              {selectedDate && (
-                <div style={{ marginTop: 8, color: openInfo?.gesperrt ? "#b91c1c" : "#6b7280" }}>
-                  {!openInfo
-                    ? "Lade Öffnungszeiten…"
-                    : openInfo.gesperrt
-                    ? "An diesem Tag sind keine Buchungen möglich (gesperrt)."
-                    : openInfo.start && openInfo.end
-                    ? `Geöffnet: ${openInfo.start} – ${openInfo.end}`
-                    : "Für diesen Tag sind keine Öffnungszeiten hinterlegt."}
-                </div>
-              )}
-
-              {selectedDate && !openInfo?.gesperrt && openInfo?.start && openInfo?.end && (
-                <>
-                  <div style={{ margin: "8px 0" }}>Welche Zeit passt am besten?</div>
-                  <div className="slot-grid">
-                    {slots.map((t) => {
-                      const past = isPastToday(selectedDate, t);
-                      return (
-                        <button
-                          key={t}
-                          className={`slot ${selectedTime === t ? "slot--active" : ""}`}
-                          disabled={past}
-                          onClick={() => !past && setSelectedTime(t)}
-                          title={past ? "Zeitpunkt ist bereits vorbei" : ""}
-                        >
-                          {t}
-                        </button>
-                      );
-                    })}
-                    {slots.length === 0 && <div className="muted">Keine freien Zeiten.</div>}
-                  </div>
-                </>
-              )}
             </div>
           </div>
 
@@ -934,123 +852,5 @@ function UserAdminBlock({ allUsers, reloadUsers }) {
         </button>
       </div>
     </section>
-  );
-}
-
-/* ───────────────── Sub-Komponente: Benutzer anlegen ───────────────── */
-function AdminCreateUser({ onCreated }) {
-  const [form, setForm] = useState({
-    name: "",
-    email: "",
-    telefonnummer: "",
-    password: "",
-    role: "USER",
-  });
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState("");
-
-  async function handleSubmit(e) {
-    e.preventDefault();
-    setSaving(true);
-    setError("");
-
-    try {
-      // 1) über öffentliches Register-API anlegen
-      const res = await fetch(`${API_BASE}/auth/register`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: form.name.trim(),
-          email: form.email.trim(),
-          password: form.password,
-          telefonnummer: form.telefonnummer.trim(),
-        }),
-      });
-
-      if (!res.ok) {
-        const txt = await res.text();
-        throw new Error(txt || `Fehler ${res.status}`);
-      }
-
-      // 2) optional Rolle setzen
-      onCreated?.(form.email, form.role);
-
-      alert("Benutzer wurde angelegt.");
-      setForm({ name: "", email: "", telefonnummer: "", password: "", role: "USER" });
-    } catch (err) {
-      setError(err?.message || "Unbekannter Fehler");
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  return (
-    <form className="grid grid--3" onSubmit={handleSubmit}>
-      <label className="grid--full">
-        <span className="label">Name</span>
-        <input
-          className="input"
-          value={form.name}
-          onChange={(e) => setForm({ ...form, name: e.target.value })}
-          required
-        />
-      </label>
-
-      <label>
-        <span className="label">E-Mail</span>
-        <input
-          type="email"
-          className="input"
-          value={form.email}
-          onChange={(e) => setForm({ ...form, email: e.target.value })}
-          required
-        />
-      </label>
-
-      <label>
-        <span className="label">Telefon</span>
-        <input
-          className="input"
-          value={form.telefonnummer}
-          onChange={(e) => setForm({ ...form, telefonnummer: e.target.value })}
-          required
-        />
-      </label>
-
-      <label>
-        <span className="label">Passwort</span>
-        <input
-          type="password"
-          className="input"
-          value={form.password}
-          onChange={(e) => setForm({ ...form, password: e.target.value })}
-          required
-        />
-      </label>
-
-      <label>
-        <span className="label">Rolle</span>
-        <select
-          className="input"
-          value={form.role}
-          onChange={(e) => setForm({ ...form, role: e.target.value })}
-        >
-          <option value="USER">USER</option>
-          <option value="ADMIN">ADMIN</option>
-        </select>
-      </label>
-
-      <div className="grid--align-end">
-        <button className="btn btn--primary" type="submit" disabled={saving}>
-          {saving ? "Speichern…" : "Benutzer anlegen"}
-        </button>
-      </div>
-
-      {error && (
-        <div className="grid--full muted" style={{ color: "var(--danger)" }}>
-          {error}
-        </div>
-      )}
-    </form>
   );
 }
