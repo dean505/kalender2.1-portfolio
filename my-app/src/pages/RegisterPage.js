@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { registerUser } from "../services/authService";
+import { login, registerUser } from "../services/authService";
+import { getCurrentUser, getRoleRedirect, setToken } from "../services/sessionService";
 import "../assets/style.css";
 
 const RegisterPage = () => {
@@ -18,8 +19,10 @@ const RegisterPage = () => {
 
     try {
       await registerUser(payload);
-      alert("Erfolgreich registriert! Du kannst dich jetzt einloggen.");
-      navigate("/login");
+      const token = await login({ email: email.trim(), password });
+      setToken(token);
+      const currentUser = getCurrentUser();
+      navigate(getRoleRedirect(currentUser?.role || ""));
     } catch (err) {
       console.error("Fehler bei der Registrierung:", err);
       setErrorMessage(

@@ -19,6 +19,7 @@ import {
 import { listUsers, updateUserRole } from "../services/adminService";
 import AdminCreateUser from "../components/AdminCreateUser";
 import AdminCategoryManager from "../components/AdminCategoryManager";
+import ChangePasswordModal from "../components/ChangePasswordModal";
 import SchedulePicker from "../components/SchedulePicker";
 import { clearToken } from "../services/sessionService";
 import UserAdminBlock from "../components/UserAdminBlock";
@@ -39,6 +40,7 @@ export default function AdminPage() {
 
   // ───────────────── Auth ─────────────────
   const [adminName, setAdminName] = useState("");
+  const [pwdOpen, setPwdOpen] = useState(false);
 
   useEffect(() => {
     if (!currentUser) return;
@@ -537,8 +539,16 @@ export default function AdminPage() {
         </div>
       </section>
 
-      {/* Logout */}
-      <div style={{ textAlign: "right", margin: "12px 0 40px" }}>
+      <ChangePasswordModal
+        open={pwdOpen}
+        onClose={() => setPwdOpen(false)}
+        onSaved={() => setPwdOpen(false)}
+      />
+
+      <div className="footer-actions">
+        <button className="btn btn--light" onClick={() => setPwdOpen(true)}>
+          Passwort aendern
+        </button>
         <button className="btn btn--danger" onClick={logout}>
           Logout
         </button>
