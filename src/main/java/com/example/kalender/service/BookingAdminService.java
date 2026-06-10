@@ -59,13 +59,13 @@ public class BookingAdminService {
         }
 
         // 2) Gesperrter Arbeitstag?
-        var arbeitstag = arbeitstagRepository.findByDatum(date).orElse(null);
+        var arbeitstag = arbeitstagRepository.findFirstByMasterIdAndDatum(master.getId(), date).orElse(null);
         if (arbeitstag != null && arbeitstag.isIstGesperrt()) {
             throw new IllegalStateException("Der gewählte Tag ist gesperrt.");
         }
 
         // 3) Öffnungszeiten?
-        var oeffnung = oeffnungszeitenRepository.findByWochentag(date.getDayOfWeek()).orElse(null);
+        var oeffnung = oeffnungszeitenRepository.findFirstByMasterIdAndWochentag(master.getId(), date.getDayOfWeek()).orElse(null);
         if (oeffnung == null || oeffnung.getStartUhrzeit() == null || oeffnung.getEndUhrzeit() == null) {
             throw new IllegalStateException("Keine Öffnungszeiten vorhanden.");
         }

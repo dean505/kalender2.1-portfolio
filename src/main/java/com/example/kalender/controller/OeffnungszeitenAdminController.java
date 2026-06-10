@@ -1,55 +1,50 @@
 package com.example.kalender.controller;
 
 import com.example.kalender.entity.Oeffnungszeiten;
+import com.example.kalender.service.MasterService;
 import com.example.kalender.service.OeffnungszeitenService;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
 
-import java.time.DayOfWeek;
 import java.time.LocalDate;
 
-// Nur für ADMINs – Öffnungszeiten verwalten
 @RestController
 @RequestMapping("/admin/oeffnungszeiten")
 public class OeffnungszeitenAdminController {
 
     private final OeffnungszeitenService service;
+    private final MasterService masterService;
 
-    public OeffnungszeitenAdminController(OeffnungszeitenService service) {
+    public OeffnungszeitenAdminController(OeffnungszeitenService service, MasterService masterService) {
         this.service = service;
+        this.masterService = masterService;
     }
 
-    // Gibt die Öffnungszeiten für ein bestimmtes Datum zurück
     @GetMapping("/datum/{date}")
-    public ResponseEntity<Oeffnungszeiten> getOeffnungszeitenByDate(@PathVariable LocalDate date) {
-        DayOfWeek dayOfWeek  = date.getDayOfWeek();
-        Oeffnungszeiten oeffnungszeiten = service.getOeffnungszeiten(dayOfWeek);
+    public ResponseEntity<Oeffnungszeiten> getOeffnungszeitenByDate(
+            @PathVariable LocalDate date,
+            @RequestParam(required = false) Long masterId
+    ) {
+        Long resolvedMasterId = masterId != null ? masterId : masterService.getDefaultMaster().getId();
+        Oeffnungszeiten oeffnungszeiten = service.getOeffnungszeitenByDate(resolvedMasterId, date);
         return oeffnungszeiten != null
                 ? ResponseEntity.ok(oeffnungszeiten)
                 : ResponseEntity.notFound().build();
     }
 
-    // Aktualisiert die Öffnungszeiten für ein bestimmtes Datum
     @PutMapping("/datum/{date}")
-    public ResponseEntity<Oeffnungszeiten> updateOeffnungszeiten(@PathVariable LocalDate date, @RequestBody Oeffnungszeiten oeffnungszeiten) {
-        DayOfWeek dayOfWeek  = date.getDayOfWeek();
-        Oeffnungszeiten existing = service.getOeffnungszeiten(dayOfWeek);
-        if (existing != null) {
-            existing.setStartUhrzeit(oeffnungszeiten.getStartUhrzeit());
-            existing.setEndUhrzeit(oeffnungszeiten.getEndUhrzeit());
-            service.saveOeffnungszeiten(existing);
-            return ResponseEntity.ok(existing);
-        }
-        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(null);
-    }
-
-    // Erstellt neue Öffnungszeiten
-    @PostMapping
-    public ResponseEntity<Oeffnungszeiten> create(@RequestBody Oeffnungszeiten oeffnungszeiten) {
-        Oeffnungszeiten saved = service.saveOeffnungszeiten(oeffnungszeiten);
-        return ResponseEntity.status(HttpStatus.CREATED).body(saved);
+    public ResponseEntity<Oeffnungszeiten> updateOeffnungszeiten(
+            @PathVariable LocalDate date,
+            @RequestBody Oeffnungszeiten oeffnungszeiten,
+            @RequestParam(required = false) Long masterId
+    ) {
+        Long resolvedMasterId = masterId != null ? masterId : masterService.getDefaultMaster().getId();
+        return ResponseEntity.ok(service.saveForDate(resolvedMasterId, date, oeffnungszeiten));
     }
 }
-
-

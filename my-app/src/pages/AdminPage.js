@@ -1,5 +1,5 @@
 // src/pages/AdminPage.js
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import moment from "moment";
 import "moment/locale/de";
 import { useNavigate } from "react-router-dom";
@@ -19,20 +19,27 @@ import {
 import { listUsers, updateUserRole } from "../services/adminService";
 import AdminCreateUser from "../components/AdminCreateUser";
 import AdminCategoryManager from "../components/AdminCategoryManager";
+import AdminMasterManager from "../components/AdminMasterManager";
 import ChangePasswordModal from "../components/ChangePasswordModal";
 import SchedulePicker from "../components/SchedulePicker";
 import { clearToken } from "../services/sessionService";
 import UserAdminBlock from "../components/UserAdminBlock";
 import AdminWorkdaySettings from "../components/AdminWorkdaySettings";
+import { listMasters } from "../services/masterService";
 import "../assets/style.css";
 
 moment.locale("de");
 
 // ✨ Tabs
-const TAB = { CREATE_APPT: "CREATE_APPT", CREATE_USER: "CREATE_USER" };
+const TAB = {
+  CREATE_APPT: "CREATE_APPT",
+  CREATE_USER: "CREATE_USER",
+  MANAGE_USERS: "MANAGE_USERS",
+  MANAGE_MASTERS: "MANAGE_MASTERS",
+};
 const ADMIN_ROLES = ["ROLE_ADMIN", "ROLE_SUPERADMIN"];
-const ADMIN_WORKDAY_PATH = (date) => `/admin/arbeitstag/datum/${date}`;
-const ADMIN_OPENING_HOURS_PATH = (date) => `/admin/oeffnungszeiten/datum/${date}`;
+const withMasterQuery = (path, masterId) =>
+  masterId ? `${path}?masterId=${encodeURIComponent(masterId)}` : path;
 
 export default function AdminPage() {
   const navigate = useNavigate();
@@ -71,6 +78,8 @@ export default function AdminPage() {
   const [pickedUser, setPickedUser] = useState(null); // {id,name,email,role}
   const [selectedDate, setSelectedDate] = useState(""); // 'YYYY-MM-DD'
   const [selectedTime, setSelectedTime] = useState(""); // 'HH:mm'
+  const [masters, setMasters] = useState([]);
+  const [selectedMaster, setSelectedMaster] = useState(null);
 
   async function loadUsersAdmin() {
     const data = await listUsers().catch(() => []);
@@ -97,11 +106,27 @@ export default function AdminPage() {
   const [categories, setCategories] = useState([]);
   const [busyTimes, setBusyTimes] = useState([]); // ISO-Startzeiten (global)
 
+  const adminWorkdayPath = useCallback(
+    (date) => withMasterQuery(`/admin/arbeitstag/datum/${date}`, selectedMaster?.id),
+    [selectedMaster?.id]
+  );
+
+  const adminOpeningHoursPath = useCallback(
+    (date) => withMasterQuery(`/admin/oeffnungszeiten/datum/${date}`, selectedMaster?.id),
+    [selectedMaster?.id]
+  );
+
   async function loadInitial() {
-    const [cats, busy] = await Promise.all([
+    const [loadedMasters, cats] = await Promise.all([
+      listMasters(),
       listCategories(),
-      listBookedSlots(),
     ]);
+    const nextMasters = loadedMasters || [];
+    const nextMaster = selectedMaster || nextMasters[0] || null;
+    const busy = nextMaster ? await listBookedSlots(nextMaster.id).catch(() => []) : [];
+
+    setMasters(nextMasters);
+    setSelectedMaster(nextMaster);
     setCategories(cats || []);
     setBusyTimes(busy || []);
   }
@@ -117,8 +142,8 @@ export default function AdminPage() {
     selectedDate,
     selectedCategory: selectedCat,
     busyTimes,
-    workdayPath: ADMIN_WORKDAY_PATH,
-    openingHoursPath: ADMIN_OPENING_HOURS_PATH,
+    workdayPath: adminWorkdayPath,
+    openingHoursPath: adminOpeningHoursPath,
   });
 
   async function createAdminBooking() {
@@ -130,6 +155,7 @@ export default function AdminPage() {
     const payload = {
       userId: Number(pickedUser.id),
       categoryId: Number(selectedCat.id),
+      masterId: Number(selectedMaster.id),
       appointmentTime
     };
 
@@ -142,7 +168,7 @@ export default function AdminPage() {
         loadToday(),
         loadUnconfirmed(),
         (async () => {
-          const busy = await listBookedSlots().catch(() => []);
+          const busy = await listBookedSlots(selectedMaster.id).catch(() => []);
           setBusyTimes(busy || []);
         })()
       ]);
@@ -200,7 +226,8 @@ export default function AdminPage() {
     return (allBookings || []).filter(
       (b) =>
         (b.userName || "").toLowerCase().includes(q) ||
-        (b.categoryName || "").toLowerCase().includes(q)
+        (b.categoryName || "").toLowerCase().includes(q) ||
+        (b.masterName || "").toLowerCase().includes(q)
     );
   }, [allBookings, bookingSearch]);
 
@@ -219,6 +246,16 @@ export default function AdminPage() {
   async function reloadCategories() {
     const cats = await listCategories();
     setCategories(cats || []);
+  }
+
+  async function reloadMasters() {
+    const data = await listMasters().catch(() => []);
+    const nextMasters = data || [];
+    setMasters(nextMasters);
+
+    if (!selectedMaster || !nextMasters.some((master) => master.id === selectedMaster.id)) {
+      setSelectedMaster(nextMasters[0] || null);
+    }
   }
 
   function isPastToday(dateISO, hhmm) {
@@ -256,6 +293,26 @@ export default function AdminPage() {
         >
           Benutzer anlegen
         </button>
+
+        <button
+          type="button"
+          role="tab"
+          className={`tab ${tab === TAB.MANAGE_USERS ? "tab--active" : ""}`}
+          onClick={() => setTab(TAB.MANAGE_USERS)}
+          aria-selected={tab === TAB.MANAGE_USERS}
+        >
+          Benutzer verwalten
+        </button>
+
+        <button
+          type="button"
+          role="tab"
+          className={`tab ${tab === TAB.MANAGE_MASTERS ? "tab--active" : ""}`}
+          onClick={() => setTab(TAB.MANAGE_MASTERS)}
+          aria-selected={tab === TAB.MANAGE_MASTERS}
+        >
+          Master verwalten
+        </button>
       </div>
 
       {/* ✨ Termin anlegen / Benutzer anlegen Umschalter */}
@@ -271,6 +328,28 @@ export default function AdminPage() {
 
           {/* ── Inhalt: Termin anlegen (wie früher) ── */}
           <div className="grid grid--3" style={{ alignItems: "start" }}>
+            <div className="grid--full">
+              <label className="label">Master</label>
+              <div className="pill-grid">
+                {(masters || []).map((master) => (
+                  <button
+                    key={master.id}
+                    type="button"
+                    className={`pill ${selectedMaster?.id === master.id ? "pill--active" : ""}`}
+                    onClick={async () => {
+                      setSelectedMaster(master);
+                      setSelectedTime("");
+                      const busy = await listBookedSlots(master.id).catch(() => []);
+                      setBusyTimes(busy || []);
+                    }}
+                  >
+                    <div className="pill__title">{master.name}</div>
+                    {master.description && <div className="pill__meta">{master.description}</div>}
+                  </button>
+                ))}
+              </div>
+            </div>
+
             {/* Nutzer suchen */}
             <div className="grid--full">
               <label className="label">Benutzer suchen</label>
@@ -364,6 +443,9 @@ export default function AdminPage() {
           <div className="side-card">
             <h4>Ihr Termin</h4>
             <div className="side-card__row">
+              <strong>Master:</strong> {selectedMaster?.name || "-"}
+            </div>
+            <div className="side-card__row">
               <strong>Leistung:</strong> {selectedCat?.name || "—"}
             </div>
             {selectedCat?.durationMinutes != null && (
@@ -389,7 +471,7 @@ export default function AdminPage() {
             <button
               className="btn btn--primary"
               style={{ width: "100%", marginTop: 10 }}
-              disabled={!pickedUser || !selectedCat || !selectedDate || !selectedTime}
+              disabled={!selectedMaster || !pickedUser || !selectedCat || !selectedDate || !selectedTime}
               onClick={createAdminBooking}
             >
               Termin anlegen
@@ -423,6 +505,45 @@ export default function AdminPage() {
             }}
           />
         </section>
+      )}
+
+      {tab === TAB.MANAGE_USERS && (
+        <section className="admin-card">
+          <div
+            className="toolbar"
+            style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}
+          >
+            <h3 style={{ margin: 0 }}>Benutzer verwalten</h3>
+          </div>
+
+          <UserAdminBlock allUsers={allUsers} reloadUsers={loadUsersAdmin} />
+        </section>
+      )}
+
+      {tab === TAB.MANAGE_MASTERS && (
+        <>
+          <AdminMasterManager onChanged={reloadMasters} />
+
+          <AdminCategoryManager
+            categories={categories}
+            reloadCategories={reloadCategories}
+          />
+
+          <AdminWorkdaySettings
+            masters={masters}
+            currentMasterId={selectedMaster?.id}
+            onWorkdayUpdated={(date, masterId) => {
+              if (String(masterId) === String(selectedMaster?.id)) {
+                refreshDisabledForWeek(date);
+              }
+            }}
+            onOpeningHoursUpdated={(date, masterId) => {
+              if (String(masterId) === String(selectedMaster?.id) && selectedDate === date) {
+                setSelectedTime("");
+              }
+            }}
+          />
+        </>
       )}
 
       {/* Heute */}
@@ -470,23 +591,7 @@ export default function AdminPage() {
         </ul>
       </section>
 
-      <AdminCategoryManager
-        categories={categories}
-        reloadCategories={reloadCategories}
-      />
-
       {/* Benutzerverwaltung (Suche + Paging + Rollen + Löschen) */}
-      <UserAdminBlock allUsers={allUsers} reloadUsers={loadUsersAdmin} />
-
-      <AdminWorkdaySettings
-        onWorkdayUpdated={refreshDisabledForWeek}
-        onOpeningHoursUpdated={(date) => {
-          if (selectedDate === date) {
-            setSelectedTime("");
-          }
-        }}
-      />
-
       {/* Alle zukünftigen Buchungen */}
       <section className="admin-card">
         <h3>Alle zukünftigen Buchungen</h3>

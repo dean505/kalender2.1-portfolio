@@ -5,16 +5,22 @@ import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.time.DayOfWeek;
 import java.time.LocalDate;
+import java.util.List;
 import java.util.Optional;
 
 public interface ArbeitstagRepository extends JpaRepository<Arbeitstag, Long> {
-    // Sucht nach einem Arbeitstag anhand des Wochentags
-    Optional<Arbeitstag> findByWochentag(DayOfWeek wochentag);  // Überprüft, ob der Wochentag gesperrt ist
 
-    // Prüft, ob ein Arbeitstag für den angegebenen Wochentag existiert
-    boolean existsByWochentag(DayOfWeek wochentag); // Überprüfung, ob ein Arbeitstag für den angegebenen Wochentag existiert
+    Optional<Arbeitstag> findByWochentag(DayOfWeek wochentag);
 
-    // Sucht nach einem Arbeitstag anhand des Datums
-    Optional<Arbeitstag> findByDatum(LocalDate datum); // Sucht den Arbeitstag für das angegebene Datum
+    boolean existsByWochentag(DayOfWeek wochentag);
+
+    Optional<Arbeitstag> findByDatum(LocalDate datum);
+
+    Optional<Arbeitstag> findFirstByMasterIdAndDatum(Long masterId, LocalDate datum);
+
+    Optional<Arbeitstag> findFirstByMasterIdAndWochentag(Long masterId, DayOfWeek wochentag);
+
+    boolean existsByMasterIdAndWochentag(Long masterId, DayOfWeek wochentag);
+
+    List<Arbeitstag> findByMasterIsNull();
 }
-

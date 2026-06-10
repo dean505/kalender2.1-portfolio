@@ -19,6 +19,10 @@ public class Arbeitstag {
 
     private LocalDate datum;  // Das Datum des Arbeitstags (neues Feld)
 
+    @ManyToOne
+    @JoinColumn(name = "master_id")
+    private Master master;
+
     // Konstruktoren, Getter und Setter
     public Arbeitstag() {}
 
@@ -59,8 +63,15 @@ public class Arbeitstag {
     public void setDatum(LocalDate datum) {
         this.datum = datum; // Setzt das Datum des Arbeitstags
     }
-}
 
+    public Master getMaster() {
+        return master;
+    }
+
+    public void setMaster(Master master) {
+        this.master = master;
+    }
+}
 
 
 

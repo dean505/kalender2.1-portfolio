@@ -1,17 +1,19 @@
 import { fetchWithAuth } from "../utils/api";
 
-export function listBookedSlots() {
-  return fetchWithAuth("/api/bookings/alle-zeiten");
+export function listBookedSlots(masterId) {
+  const query = masterId ? `?masterId=${encodeURIComponent(masterId)}` : "";
+  return fetchWithAuth(`/api/bookings/alle-zeiten${query}`);
 }
 
 export function listMyBookings() {
   return fetchWithAuth("/api/bookings/me");
 }
 
-export function createUserBooking({ appointmentTime, categoryId }) {
+export function createUserBooking({ appointmentTime, categoryId, masterId }) {
   return fetchWithAuth("/api/bookings", "POST", {
     appointmentTime,
     categoryId,
+    masterId,
   });
 }
 

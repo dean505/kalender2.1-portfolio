@@ -1,29 +1,106 @@
-import React, { useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { updateOpeningHours, updateWorkday } from "../services/adminService";
 
-export default function AdminWorkdaySettings({ onOpeningHoursUpdated, onWorkdayUpdated }) {
+export default function AdminWorkdaySettings({
+  masters = [],
+  currentMasterId,
+  onOpeningHoursUpdated,
+  onWorkdayUpdated,
+}) {
+  const [workdayDialogOpen, setWorkdayDialogOpen] = useState(false);
+  const [hoursDialogOpen, setHoursDialogOpen] = useState(false);
+  const [selectedMasterId, setSelectedMasterId] = useState("");
   const [lockForm, setLockForm] = useState({ date: "", lock: "true" });
   const [hoursForm, setHoursForm] = useState({ date: "", open: "", close: "" });
 
+  const activeMasters = useMemo(
+    () => masters.filter((master) => master.active !== false),
+    [masters]
+  );
+
+  useEffect(() => {
+    if (selectedMasterId && activeMasters.some((master) => String(master.id) === String(selectedMasterId))) {
+      return;
+    }
+
+    setSelectedMasterId(activeMasters[0]?.id ? String(activeMasters[0].id) : "");
+  }, [activeMasters, selectedMasterId]);
+
+  function getPreferredMasterId() {
+    if (currentMasterId && activeMasters.some((master) => String(master.id) === String(currentMasterId))) {
+      return String(currentMasterId);
+    }
+
+    return activeMasters[0]?.id ? String(activeMasters[0].id) : "";
+  }
+
+  function openWorkdayDialog() {
+    setSelectedMasterId(getPreferredMasterId());
+    setWorkdayDialogOpen(true);
+  }
+
+  function openHoursDialog() {
+    setSelectedMasterId(getPreferredMasterId());
+    setHoursDialogOpen(true);
+  }
+
   async function submitLock(e) {
     e.preventDefault();
-    await updateWorkday(lockForm.date, lockForm.lock === "true");
+    await updateWorkday(lockForm.date, lockForm.lock === "true", selectedMasterId);
     alert("Arbeitstag aktualisiert");
-    onWorkdayUpdated?.(lockForm.date);
+    setWorkdayDialogOpen(false);
+    onWorkdayUpdated?.(lockForm.date, selectedMasterId);
   }
 
   async function submitHours(e) {
     e.preventDefault();
-    await updateOpeningHours(hoursForm.date, hoursForm.open, hoursForm.close);
-    alert("Öffnungszeiten gespeichert");
-    onOpeningHoursUpdated?.(hoursForm.date);
+    await updateOpeningHours(hoursForm.date, hoursForm.open, hoursForm.close, selectedMasterId);
+    alert("Oeffnungszeiten gespeichert");
+    setHoursDialogOpen(false);
+    onOpeningHoursUpdated?.(hoursForm.date, selectedMasterId);
   }
 
   return (
     <>
       <section className="admin-card">
         <h3>Arbeitstag verwalten</h3>
-        <form className="grid grid--3" onSubmit={submitLock}>
+        <p className="muted">
+          Sperre oder oeffne einzelne Tage fuer einen bestimmten Master.
+        </p>
+        <button
+          className="btn btn--primary"
+          type="button"
+          onClick={openWorkdayDialog}
+          disabled={activeMasters.length === 0}
+        >
+          Arbeitstag bearbeiten
+        </button>
+      </section>
+
+      <section className="admin-card">
+        <h3>Arbeitszeit verwalten</h3>
+        <p className="muted">
+          Neue Master bekommen automatisch Mo-Fr 09:00-16:00. Hier kannst du einzelne Tage anpassen.
+        </p>
+        <button
+          className="btn btn--primary"
+          type="button"
+          onClick={openHoursDialog}
+          disabled={activeMasters.length === 0}
+        >
+          Arbeitszeit bearbeiten
+        </button>
+      </section>
+
+      <ScheduleDialog
+        open={workdayDialogOpen}
+        title="Arbeitstag bearbeiten"
+        masters={activeMasters}
+        selectedMasterId={selectedMasterId}
+        onSelectMaster={setSelectedMasterId}
+        onClose={() => setWorkdayDialogOpen(false)}
+      >
+        <form className="grid grid--1" onSubmit={submitLock}>
           <label>
             <span className="label">Datum</span>
             <input
@@ -45,17 +122,19 @@ export default function AdminWorkdaySettings({ onOpeningHoursUpdated, onWorkdayU
               <option value="false">Freigeben</option>
             </select>
           </label>
-          <div className="grid--align-end">
-            <button className="btn btn--primary" type="submit">
-              Speichern
-            </button>
-          </div>
+          <DialogActions onClose={() => setWorkdayDialogOpen(false)} disabled={!selectedMasterId} />
         </form>
-      </section>
+      </ScheduleDialog>
 
-      <section className="admin-card">
-        <h3>Arbeitszeit verwalten</h3>
-        <form className="grid grid--4" onSubmit={submitHours}>
+      <ScheduleDialog
+        open={hoursDialogOpen}
+        title="Arbeitszeit bearbeiten"
+        masters={activeMasters}
+        selectedMasterId={selectedMasterId}
+        onSelectMaster={setSelectedMasterId}
+        onClose={() => setHoursDialogOpen(false)}
+      >
+        <form className="grid grid--1" onSubmit={submitHours}>
           <label>
             <span className="label">Datum</span>
             <input
@@ -67,7 +146,7 @@ export default function AdminWorkdaySettings({ onOpeningHoursUpdated, onWorkdayU
             />
           </label>
           <label>
-            <span className="label">Öffnungszeit</span>
+            <span className="label">Oeffnungszeit</span>
             <input
               type="time"
               className="input"
@@ -77,7 +156,7 @@ export default function AdminWorkdaySettings({ onOpeningHoursUpdated, onWorkdayU
             />
           </label>
           <label>
-            <span className="label">Schließzeit</span>
+            <span className="label">Schliesszeit</span>
             <input
               type="time"
               className="input"
@@ -86,13 +165,50 @@ export default function AdminWorkdaySettings({ onOpeningHoursUpdated, onWorkdayU
               required
             />
           </label>
-          <div className="grid--align-end">
-            <button className="btn btn--primary" type="submit">
-              Speichern
-            </button>
-          </div>
+          <DialogActions onClose={() => setHoursDialogOpen(false)} disabled={!selectedMasterId} />
         </form>
-      </section>
+      </ScheduleDialog>
     </>
+  );
+}
+
+function ScheduleDialog({ open, title, masters, selectedMasterId, onSelectMaster, onClose, children }) {
+  if (!open) return null;
+
+  return (
+    <div className="modal-backdrop" onClick={onClose}>
+      <div className="modal-panel" onClick={(e) => e.stopPropagation()}>
+        <h3>{title}</h3>
+        <label>
+          <span className="label">Master</span>
+          <select
+            className="input"
+            value={selectedMasterId}
+            onChange={(e) => onSelectMaster(e.target.value)}
+            required
+          >
+            {masters.map((master) => (
+              <option key={master.id} value={master.id}>
+                {master.name}
+              </option>
+            ))}
+          </select>
+        </label>
+        {children}
+      </div>
+    </div>
+  );
+}
+
+function DialogActions({ onClose, disabled }) {
+  return (
+    <div className="modal-actions">
+      <button type="button" className="btn btn--light" onClick={onClose}>
+        Abbrechen
+      </button>
+      <button type="submit" className="btn btn--primary" disabled={disabled}>
+        Speichern
+      </button>
+    </div>
   );
 }

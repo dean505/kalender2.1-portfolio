@@ -12,12 +12,16 @@ export function deleteUser(userId) {
   return fetchWithAuth(`/admin/users/${userId}`, "DELETE");
 }
 
-export function updateWorkday(date, istGesperrt) {
-  return fetchWithAuth(`/admin/arbeitstag/datum/${date}`, "PUT", { istGesperrt });
+function masterQuery(masterId) {
+  return masterId ? `?masterId=${encodeURIComponent(masterId)}` : "";
 }
 
-export function updateOpeningHours(date, startUhrzeit, endUhrzeit) {
-  return fetchWithAuth(`/admin/oeffnungszeiten/datum/${date}`, "PUT", {
+export function updateWorkday(date, istGesperrt, masterId) {
+  return fetchWithAuth(`/admin/arbeitstag/datum/${date}${masterQuery(masterId)}`, "PUT", { istGesperrt });
+}
+
+export function updateOpeningHours(date, startUhrzeit, endUhrzeit, masterId) {
+  return fetchWithAuth(`/admin/oeffnungszeiten/datum/${date}${masterQuery(masterId)}`, "PUT", {
     startUhrzeit,
     endUhrzeit,
   });

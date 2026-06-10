@@ -74,6 +74,16 @@ body{
 .grid--4{ grid-template-columns:repeat(4, 1fr); }
 .grid--full{ grid-column:1 / -1; }
 .grid--align-end{ display:flex; align-items:flex-end; }
+.checkbox-row{
+  display:flex;
+  align-items:center;
+  gap:8px;
+  min-height:42px;
+  margin-top:26px;
+}
+.checkbox-row input{
+  width:auto;
+}
 
 @media (max-width: 960px){
   .grid--3,.grid--4{ grid-template-columns:1fr; }
@@ -362,6 +372,37 @@ thead th{
 .auth-actions{ display:flex; gap:8px; align-items:center; justify-content:space-between; }
 
 /* ===========================
+   Modal
+=========================== */
+.modal-backdrop{
+  position:fixed;
+  inset:0;
+  z-index:50;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  padding:20px;
+  background:rgba(15,23,42,.45);
+}
+.modal-panel{
+  width:min(520px, 100%);
+  max-height:calc(100vh - 40px);
+  overflow:auto;
+  background:#fff;
+  border:1px solid var(--border);
+  border-radius:var(--radius);
+  box-shadow:0 24px 60px rgba(15,23,42,.22);
+  padding:18px;
+}
+.modal-panel h3{ margin:0 0 14px; }
+.modal-actions{
+  display:flex;
+  gap:8px;
+  justify-content:flex-end;
+  margin-top:8px;
+}
+
+/* ===========================
    Legacy (sanfte Defaults)
 =========================== */
 ul{ padding-left:0; }
@@ -397,6 +438,7 @@ section{ margin-bottom:16px; }
 /* ─── Browser-like Tabs (größer) ─────────────────────────────── */
 .tabs--browser {
   display: flex;
+  flex-wrap: wrap;
   gap: 8px;
   padding: 0 10px;
   margin-bottom: -6px;

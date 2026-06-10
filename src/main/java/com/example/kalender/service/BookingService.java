@@ -67,13 +67,13 @@ public class BookingService {
         }
 
         // 4. Gesperrter Arbeitstag?
-        Arbeitstag arbeitstag = arbeitstagRepository.findByDatum(date).orElse(null);
+        Arbeitstag arbeitstag = arbeitstagRepository.findFirstByMasterIdAndDatum(master.getId(), date).orElse(null);
         if (arbeitstag != null && arbeitstag.isIstGesperrt()) {
             throw new IllegalStateException("Der gewählte Tag ist gesperrt.");
         }
 
         // 5. Öffnungszeiten?
-        Oeffnungszeiten oeffnung = oeffnungszeitenRepository.findByWochentag(date.getDayOfWeek()).orElse(null);
+        Oeffnungszeiten oeffnung = oeffnungszeitenRepository.findFirstByMasterIdAndWochentag(master.getId(), date.getDayOfWeek()).orElse(null);
         if (oeffnung == null || oeffnung.getStartUhrzeit() == null || oeffnung.getEndUhrzeit() == null) {
             throw new IllegalStateException("Keine Öffnungszeiten vorhanden.");
         }
@@ -175,8 +175,10 @@ public class BookingService {
         bookingRepository.deleteById(bookingId);
     }
 
-    public List<BookedSlotDTO> getAllAppointmentTimes() {
-        return bookingRepository.findAll()
+    public List<BookedSlotDTO> getAllAppointmentTimes(Long masterId) {
+        Master master = masterService.resolveMaster(masterId);
+
+        return bookingRepository.findByMasterId(master.getId())
                 .stream()
                 .map(booking -> new BookedSlotDTO(
                         booking.getAppointmentTime(),

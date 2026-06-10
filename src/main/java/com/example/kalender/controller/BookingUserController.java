@@ -36,7 +36,7 @@ public class BookingUserController {
     }
 
     @GetMapping("/alle-zeiten")
-    public List<BookedSlotDTO> getAllAppointmentTimes() {
-        return bookingService.getAllAppointmentTimes();
+    public List<BookedSlotDTO> getAllAppointmentTimes(@RequestParam(required = false) Long masterId) {
+        return bookingService.getAllAppointmentTimes(masterId);
     }
 }

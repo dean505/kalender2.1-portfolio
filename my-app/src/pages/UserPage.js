@@ -1,5 +1,5 @@
 // src/pages/UserPage.js
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import moment from "moment";
 import "moment/locale/de";
 import { useNavigate } from "react-router-dom";
@@ -7,6 +7,7 @@ import { useBookingSchedule } from "../hooks/useBookingSchedule";
 import { useAuthGuard } from "../hooks/useAuthGuard";
 import { listCategories } from "../services/categoryService";
 import { createUserBooking, listBookedSlots, listMyBookings } from "../services/bookingService";
+import { listMasters } from "../services/masterService";
 import "../assets/style.css";
 import SchedulePicker from "../components/SchedulePicker";
 import { clearToken } from "../services/sessionService";
@@ -14,10 +15,10 @@ import ChangePasswordModal from "../components/ChangePasswordModal";
 
 moment.locale("de");
 
-const STEP = { PICK_CATEGORY: 1, PICK_TIME: 2 };
+const STEP = { PICK_MASTER: 1, PICK_CATEGORY: 2, PICK_TIME: 3 };
 const USER_ROLES = ["ROLE_USER", "ROLE_ADMIN"];
-const USER_WORKDAY_PATH = (date) => `/api/arbeitstag/datum/${date}`;
-const USER_OPENING_HOURS_PATH = (date) => `/api/oeffnungszeiten/datum/${date}`;
+const withMasterQuery = (path, masterId) =>
+  masterId ? `${path}?masterId=${encodeURIComponent(masterId)}` : path;
 
 export default function UserPage() {
   const navigate = useNavigate();
@@ -28,17 +29,29 @@ export default function UserPage() {
 
   // data
   const [categories, setCategories] = useState([]);     // [{ id, name, description, durationMinutes, price }]
+  const [masters, setMasters] = useState([]);
   const [myBookings, setMyBookings] = useState([]);     // [{ id, appointmentTime, categoryId, categoryName }]
   const [busyTimes, setBusyTimes] = useState([]);       // ISO-Strings (Startzeiten)
 
   // steps / selection
-  const [step, setStep] = useState(STEP.PICK_CATEGORY);
+  const [step, setStep] = useState(STEP.PICK_MASTER);
+  const [selectedMaster, setSelectedMaster] = useState(null);
   const [selectedCat, setSelectedCat] = useState(null);
   const [selectedDate, setSelectedDate] = useState(""); // "YYYY-MM-DD"
   const [selectedTime, setSelectedTime] = useState(""); // "HH:mm"
 
   // modal (Passwort ändern)
   const [pwdOpen, setPwdOpen] = useState(false);
+
+  const userWorkdayPath = useCallback(
+    (date) => withMasterQuery(`/api/arbeitstag/datum/${date}`, selectedMaster?.id),
+    [selectedMaster?.id]
+  );
+
+  const userOpeningHoursPath = useCallback(
+    (date) => withMasterQuery(`/api/oeffnungszeiten/datum/${date}`, selectedMaster?.id),
+    [selectedMaster?.id]
+  );
 
   const appointmentISO = useMemo(
     () => (selectedDate && selectedTime ? `${selectedDate}T${selectedTime}` : ""),
@@ -53,11 +66,17 @@ export default function UserPage() {
   }, [currentUser]);
 
   async function loadInitial() {
-    const [cats, mine, busy] = await Promise.all([
+    const [loadedMasters, cats, mine] = await Promise.all([
+      listMasters(),
       listCategories(),
       listMyBookings(),
-      listBookedSlots(),
     ]);
+    const nextMasters = loadedMasters || [];
+    const nextMaster = selectedMaster || nextMasters[0] || null;
+    const busy = nextMaster ? await listBookedSlots(nextMaster.id).catch(() => []) : [];
+
+    setMasters(nextMasters);
+    setSelectedMaster(nextMaster);
     setCategories(cats || []);
     const now = new Date(); now.setHours(0,0,0,0);
     setMyBookings((mine || []).filter(b => new Date(b.appointmentTime) >= now));
@@ -73,20 +92,22 @@ export default function UserPage() {
     selectedDate,
     selectedCategory: selectedCat,
     busyTimes,
-    workdayPath: USER_WORKDAY_PATH,
-    openingHoursPath: USER_OPENING_HOURS_PATH,
+    workdayPath: userWorkdayPath,
+    openingHoursPath: userOpeningHoursPath,
   });
 
 
   async function createBooking() {
-    if (!selectedCat || !appointmentISO) return;
+    if (!selectedMaster || !selectedCat || !appointmentISO) return;
     const iso = appointmentISO.length === 16 ? `${appointmentISO}:00` : appointmentISO; // Sekunden anhängen
     await createUserBooking({
       appointmentTime: iso,
       categoryId: selectedCat.id,
+      masterId: selectedMaster.id,
     });
     alert("Buchung erfolgreich");
-    setStep(STEP.PICK_CATEGORY);
+    setStep(STEP.PICK_MASTER);
+    setSelectedMaster(null);
     setSelectedCat(null);
     setSelectedDate("");
     setSelectedTime("");
@@ -111,9 +132,50 @@ export default function UserPage() {
     <div className="page-wrap">
       <h2>Willkommen, {username}</h2>
 
+      {step === STEP.PICK_MASTER && (
+        <section className="admin-card">
+          <h3>Master waehlen</h3>
+          <div className="pill-grid">
+            {masters.map((master) => (
+              <button
+                key={master.id}
+                className={`pill ${selectedMaster?.id === master.id ? "pill--active" : ""}`}
+                onClick={async () => {
+                  setSelectedMaster(master);
+                  setSelectedCat(null);
+                  setSelectedDate("");
+                  setSelectedTime("");
+                  const busy = await listBookedSlots(master.id).catch(() => []);
+                  setBusyTimes(busy || []);
+                  setStep(STEP.PICK_CATEGORY);
+                }}
+              >
+                <div className="pill__title">{master.name}</div>
+                {master.description && <div className="pill__meta">{master.description}</div>}
+              </button>
+            ))}
+            {masters.length === 0 && <div className="muted">Keine Master verfuegbar.</div>}
+          </div>
+        </section>
+      )}
+
       {step === STEP.PICK_CATEGORY && (
         <section className="admin-card">
           <h3>Leistungen wählen</h3>
+          <div className="toolbar">
+            <button
+              className="btn btn--light"
+              onClick={() => {
+                setStep(STEP.PICK_MASTER);
+                setSelectedCat(null);
+                setSelectedDate("");
+                setSelectedTime("");
+              }}
+            >
+              Master wechseln
+            </button>
+            <span className="muted">{selectedMaster?.name}</span>
+          </div>
           <div className="pill-grid">
             {categories.map(c => (
               <button
@@ -146,6 +208,7 @@ export default function UserPage() {
             >
               ← Zurück
             </button>
+            <strong>{selectedMaster?.name}</strong>
             <strong>{selectedCat.name}</strong>
             <span className="muted">
               {(selectedCat.durationMinutes ?? 40)} Min
@@ -171,6 +234,7 @@ export default function UserPage() {
             {/* rechte Spalte */}
             <div className="side-card">
               <h4>Ihr Termin</h4>
+              <div className="side-card__row"><strong>Master:</strong> {selectedMaster?.name || "-"}</div>
               <div className="side-card__row"><strong>Leistung:</strong> {selectedCat.name}</div>
               {selectedCat.durationMinutes != null && (
                 <div className="side-card__row"><strong>Dauer:</strong> {selectedCat.durationMinutes} Min</div>
